@@ -1,0 +1,96 @@
+[
+  {
+    "answer": "RRF stands for Reciprocal Rank Fusion, a method that merges ranked lists from dense and sparse retrieval using 1/(k + rank).",
+    "contexts": [
+      "Reciprocal Rank Fusion (RRF) merges ranked lists from dense and sparse retrieval by scoring each document as 1/(k + rank)."
+    ],
+    "ground_truth": "Reciprocal Rank Fusion",
+    "question": "What does RRF stand for in hybrid retrieval?"
+  },
+  {
+    "answer": "DeepResearch AI uses ChromaDB with a PersistentClient so the knowledge base survives restarts.",
+    "contexts": [
+      "The vector store is always persistent. ChromaDB must use PersistentClient so the knowledge base survives restarts."
+    ],
+    "ground_truth": "ChromaDB with PersistentClient",
+    "question": "Which vector store backend does DeepResearch AI use for local persistence?"
+  },
+  {
+    "answer": "The default chunk size is 512 tokens with a 64-token overlap.",
+    "contexts": [
+      "Chunking uses 512-token chunks with a 64-token overlap by default."
+    ],
+    "ground_truth": "512 tokens with 64-token overlap",
+    "question": "What is the default chunk size in the ingestion pipeline?"
+  },
+  {
+    "answer": "The Ragas targets are faithfulness above 0.85 and answer relevancy above 0.90.",
+    "contexts": [
+      "Ragas targets: faithfulness > 0.85, relevancy > 0.90."
+    ],
+    "ground_truth": "faithfulness > 0.85, relevancy > 0.90",
+    "question": "What are the Ragas quality targets for faithfulness and relevancy?"
+  },
+  {
+    "answer": "BM25 is the sparse retrieval method that complements dense vector search before RRF fusion.",
+    "contexts": [
+      "Sparse retrieval uses BM25 keyword matching to complement dense vector search; both lists are fused with RRF."
+    ],
+    "ground_truth": "BM25 sparse keyword retrieval",
+    "question": "What is BM25 used for in the retrieval pipeline?"
+  },
+  {
+    "answer": "Semantic chunking keeps related facts in one chunk, and RRF fusion surfaces chunks ranked highly by both dense and sparse retrieval, so the generator receives grounded context and faithfulness improves.",
+    "contexts": [
+      "Semantic chunking keeps related facts within a single chunk.",
+      "RRF fusion surfaces documents ranked highly by both dense and sparse retrieval for grounded generation."
+    ],
+    "ground_truth": "Better grounded context raises faithfulness",
+    "question": "How do chunking strategy and RRF fusion together affect answer faithfulness?"
+  },
+  {
+    "answer": "ADR-003 requires proving retrieval quality with a Ragas baseline first, so multi-agent complexity is only added when measurements justify it.",
+    "contexts": [
+      "ADR-003 'Prove Before You Build' requires a Ragas baseline on Phase 1 before starting Phase 2 multi-agent work.",
+      "Multi-agent complexity must be earned through evidence, not assumed."
+    ],
+    "ground_truth": "ADR-003 evaluation-first decision",
+    "question": "Why does evaluation need to run before multi-agent orchestration?"
+  },
+  {
+    "answer": "The query is expanded, embedded for dense retrieval, matched with BM25 sparse retrieval, fused with RRF, reranked with a cross-encoder, then passed with context to the generation pipeline.",
+    "contexts": [
+      "Retrieval workflow: expand, dense plus sparse retrieval, RRF fusion, cross-encoder rerank, then generation with cited sources."
+    ],
+    "ground_truth": "expand, retrieve, fuse, rerank, generate",
+    "question": "Which pipeline stages run between a user query and a cited answer?"
+  },
+  {
+    "answer": "It formats retrieved chunks as numbered sources, builds grounded prompts, calls the LLM provider, and returns the answer with source references.",
+    "contexts": [
+      "Generation formats retrieved chunks into numbered sources and builds grounded prompts before calling the LLM provider."
+    ],
+    "ground_truth": "Numbered sources plus grounded prompts",
+    "question": "How does the generation pipeline produce cited answers?"
+  },
+  {
+    "answer": "I cannot answer this precisely because the question is ambiguous. Please specify which component you mean.",
+    "contexts": [],
+    "ground_truth": null,
+    "question": "What is it?"
+  },
+  {
+    "answer": "Paris is the capital of France, but this is outside the research knowledge base, so the answer is not grounded in retrieved context.",
+    "contexts": [
+      "The knowledge base covers RAG pipelines, vector stores, and evaluation metrics for DeepResearch AI."
+    ],
+    "ground_truth": null,
+    "question": "What is the capital of France?"
+  },
+  {
+    "answer": "That request is too broad for the knowledge base. A useful answer needs a narrower question scoped to ingested documents.",
+    "contexts": [],
+    "ground_truth": null,
+    "question": "Summarize everything ever written about science in one sentence."
+  }
+]

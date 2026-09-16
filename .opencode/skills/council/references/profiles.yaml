@@ -1,0 +1,41 @@
+version: 1
+default_profile: classic
+default_triad: architecture
+
+members:
+  aristotle:
+    figure: Aristotle
+    domain: categorization and structure
+  socrates:
+    figure: Socrates
+    domain: assumption destruction
+  sun-tzu:
+    figure: Sun Tzu
+    domain: adversarial strategy
+  ada:
+    figure: Ada Lovelace
+    domain: formal systems and abstraction
+  feynman:
+    figure: Richard Feynman
+    domain: first-principles debugging
+  torvalds:
+    figure: Linus Torvalds
+    domain: pragmatic engineering
+
+profiles:
+  classic:
+    default_triad: architecture
+    panel: [aristotle, socrates, sun-tzu, ada, feynman, torvalds]
+    triads:
+      architecture:
+        members: [aristotle, ada, feynman]
+        rationale: classify, formalize, simplify
+      debugging:
+        members: [feynman, socrates, ada]
+        rationale: bottom-up, assumption test, formal verification
+      risk:
+        members: [sun-tzu, feynman]
+        rationale: threats, reality check
+      simplification:
+        members: [torvalds, feynman]
+        rationale: maintenance cost, reality check

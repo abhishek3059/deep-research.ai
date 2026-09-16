@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DeepResearch AI — Evaluation Report</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+.stats { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
+.stat { border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem 1rem; }
+.stat .label { display: block; font-size: 0.8rem; color: #555; }
+.stat .value { font-size: 1.4rem; font-weight: bold; }
+table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; font-size: 0.9rem; }
+th { background: #f5f5f5; }
+.pass { color: #0a7d2c; font-weight: bold; }
+.fail { color: #b3261e; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>DeepResearch AI — Evaluation Report</h1>
+<p>Generated at 2026-09-15T14:21:12.407772+00:00 &middot; Samples: 12
+&middot; Passed: 0
+&middot; Pass rate: 0.0</p>
+<div class="stats"><div class='stat'><span class='label'>mean faithfulness</span><span class='value'>0.75</span></div><div class='stat'><span class='label'>mean answer_relevancy</span><span class='value'>0.4384</span></div><div class='stat'><span class='label'>mean context_precision</span><span class='value'>0.625</span></div><div class='stat'><span class='label'>mean context_recall</span><span class='value'>0.65</span></div></div>
+<h2>Sample breakdown</h2>
+<table>
+<tr><th>Sample</th><th>Faithfulness</th><th>Relevancy</th>
+<th>Ctx precision</th><th>Ctx recall</th><th>Status</th><th>Evaluated</th></tr>
+<tr><td>sample-4a7aa826</td><td>1.000</td><td>0.750</td><td>1.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.396269+00:00</td></tr>
+<tr><td>sample-d5b69ab2</td><td>1.000</td><td>0.375</td><td>1.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.398145+00:00</td></tr>
+<tr><td>sample-0fb109db</td><td>1.000</td><td>0.600</td><td>1.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.398575+00:00</td></tr>
+<tr><td>sample-59547695</td><td>1.000</td><td>0.800</td><td>1.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.403480+00:00</td></tr>
+<tr><td>sample-187caf66</td><td>1.000</td><td>0.500</td><td>1.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.407537+00:00</td></tr>
+<tr><td>sample-3f5553d2</td><td>1.000</td><td>0.500</td><td>0.500</td><td>0.200</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.398834+00:00</td></tr>
+<tr><td>sample-0ee8b143</td><td>1.000</td><td>0.286</td><td>1.000</td><td>0.400</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.397441+00:00</td></tr>
+<tr><td>sample-974e6d17</td><td>1.000</td><td>0.250</td><td>0.000</td><td>0.400</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.406914+00:00</td></tr>
+<tr><td>sample-677b4d59</td><td>1.000</td><td>0.200</td><td>1.000</td><td>0.800</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.401230+00:00</td></tr>
+<tr><td>sample-8e65be07</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.399946+00:00</td></tr>
+<tr><td>sample-489c8dea</td><td>0.000</td><td>1.000</td><td>0.000</td><td>1.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.404414+00:00</td></tr>
+<tr><td>sample-5fd84266</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class='fail'>FAIL</span></td><td>2026-09-15T14:21:12.402411+00:00</td></tr>
+</table>
+</body>
+</html>

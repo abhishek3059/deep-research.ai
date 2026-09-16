@@ -1,0 +1,1 @@
+This is a sample document for testing the ingestion pipeline. It contains multiple sentences to verify that chunking works correctly. The quick brown fox jumps over the lazy dog. This sentence tests text splitting with various chunk sizes and overlap settings.

@@ -468,3 +468,76 @@ Phase 4 — Fine-Tuning & Self-Improvement [DEFERRED]
 - Phase 2 Week 4: Documentation (README, ADRs, demo script)
 - Phase 3: Eval dashboard in Streamlit
 - Phase 4: Fine-tuning (deferred)
+
+---
+
+## Session: 2026-09-16 — Architect Review
+
+### Overall Health: YELLOW ⚠️
+
+Architecture is sound with clean module boundaries, but several issues need attention before production.
+
+### Critical Issues Found
+
+| # | Issue | Location | Fix |
+|---|-------|----------|-----|
+| 1 | Sync blocking in async context | `crew.py:94` | `kickoff()` → `kickoff_async()` or `asyncio.to_thread` |
+| 2 | Stale docstring | `graph_skeleton.py:9` | Says "LangGraph not in pyproject.toml" but it IS |
+| 3 | No pipeline reuse | `api/routes/query.py:37-42` | Fresh pipeline per request = 2-3s latency |
+| 4 | ~80% code duplication | `self_critique.py` + `review_agent.py` | Extract shared base class |
+| 5 | Python 3.14 incompatibility | chromadb + pydantic.v1 | Pin Python to 3.11-3.13 |
+
+### Architecture Invariant Compliance
+
+All 8 invariants from AGENTS.md §7 are being met:
+- ✅ Vector store persistent (ChromaDB PersistentClient)
+- ✅ Unified LLM provider (agents/llm_provider.py)
+- ✅ Configurable embeddings (settings.embedding_model)
+- ✅ Agents don't call vector store directly (use RetrievalPipeline)
+- ✅ Guards are middleware (wrap I/O, not agent logic)
+- ✅ Eval never modifies production data
+- ✅ No hardcoded secrets (all via Pydantic Settings)
+- ✅ All async uses asyncio (no threading)
+
+### Module Assessment
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| config/ | OK | Clean Pydantic Settings, StrEnum |
+| ingestion/ | OK | 5 files, matches CONTRACTS §4.1 |
+| vectorstore/ | OK | PersistentClient, score conversion correct |
+| retrieval/ | OK | RRF fusion correct, matches CONTRACTS §4.3 |
+| agents/ | NEEDS ATTENTION | Code duplication, sync blocking, stale file |
+| guardrails/ | OK | 3 guards, matches CONTRACTS §4.4 |
+| evaluation/ | OK | Ragas + DeepEval with lexical fallback |
+| api/ | NEEDS ATTENTION | No pipeline reuse, missing agent integration |
+| ui/ | OK | Clean Streamlit app |
+
+### Positive Highlights
+
+- Excellent documentation discipline (ADRs, CONTRACTS, PROGRESS)
+- Clean module boundaries, no cross-module violations
+- Strong contract adherence across all modules
+- Graceful degradation for Ragas/DeepEval (lexical fallback)
+- 122+ tests passing with clear naming conventions
+- Defense in depth for loop guards (3 layers)
+
+### Recommendations
+
+**P0 (Before Production):**
+1. Fix crew.py async blocking
+2. Update graph_skeleton.py docstring
+3. Add pipeline caching in API
+4. Extract shared agent logic from self_critique.py + review_agent.py
+
+**P1 (Near-term):**
+5. Add pytest-cov for coverage thresholds
+6. Implement GuardResult.action_taken as enum
+7. Add .python-version pinning (3.12 or 3.13)
+8. Wire self-critique agent into /api/v1/query endpoint
+
+**P2 (Nice-to-have):**
+9. Add rate limiting middleware to FastAPI
+10. Add health check for vector store connectivity
+11. Add structured error responses for all API endpoints
+12. Document .env.example entries for DeepEval/Ragas LLM keys

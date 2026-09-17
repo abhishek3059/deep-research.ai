@@ -1,5 +1,6 @@
 """Agent orchestration — generation, memory, and the Phase 2 self-critique loop."""
 
+from src.agents.crew import CriticAgent
 from src.agents.exceptions import AgentError, AgentGraphError, AgentLoopGuardError
 from src.agents.generation import GenerationPipeline
 from src.agents.graph import TRANSITIONS, SelfCritiqueGraph, build_graph
@@ -54,6 +55,7 @@ __all__ = [
     "AgentLoopGuardError",
     "AgentState",
     "ConversationMemory",
+    "CriticAgent",
     "CritiqueDimension",
     "CritiqueResult",
     "GenerationPipeline",

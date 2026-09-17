@@ -691,28 +691,31 @@ Agents should update this section at the end of their session to give the next
 agent a quick status read:
 
 ```
-CURRENT STATE (last updated: {timestamp})
+CURRENT STATE (last updated: 2026-09-17)
 ─────────────────────────────────────────
-Phase 1 — RAG Pipeline
+Phase 1 — RAG Pipeline [COMPLETE]
   [x] Document loaders (PDF, Web, MD, CSV)
   [x] Chunking engine (recursive + semantic)
-  [/] Embedding pipeline (OpenAI done, HF in progress)
-  [ ] Vector store (ChromaDB)
-  [ ] Retrieval engine
-  [ ] Generation pipeline
-  [ ] Streamlit UI
+  [x] Embedding pipeline (OpenAI done, HF done)
+  [x] Vector store (ChromaDB persistent)
+  [x] Retrieval engine (dense, sparse, hybrid RRF, reranker)
+  [x] Generation pipeline
+  [x] Streamlit UI
+  [x] FastAPI API
 
-Phase 2 — Multi-Agent
+Phase 2 — Multi-Agent [IN PROGRESS]
+  [x] Guardrails (InputGuard, OutputGuard, HallucinationGuard — 28 tests)
   [ ] LangGraph state machine
   [ ] CrewAI agents
   [ ] Agent tools
 
-Phase 3 — Processing & Evals
-  [ ] Input processing
-  [ ] Output processing
-  [ ] Ragas eval pipeline
+Phase 3 — Processing & Evals [IN PROGRESS]
+  [x] Input processing (InputGuard)
+  [x] Output processing (OutputGuard, HallucinationGuard)
+  [x] Ragas eval pipeline (lexical fallback)
   [ ] DeepEval metrics
-  [ ] Golden dataset
+  [x] Golden dataset
+  [ ] Wire guards/evals to agent pipeline
 
 Phase 4 — Fine-Tuning
   [ ] Dataset curation
@@ -839,6 +842,7 @@ Track all modifications to this AGENTS.md file:
 | Date | Author/Agent | Change |
 |------|-------------|--------|
 | _{date}_ | _{you}_ | Initial creation |
+| 2026-09-17 | quality-agent | State snapshot: guardrails (3 guards, 28 tests) marked complete |
 
 ---
 

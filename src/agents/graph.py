@@ -28,6 +28,8 @@ from src.agents.exceptions import AgentGraphError, AgentLoopGuardError
 from src.agents.self_critique import SelfCritiqueAgent
 from src.agents.state import AgentState
 from src.config.constants import MAX_ITERATIONS
+from src.guardrails.input_guards import InputGuard
+from src.guardrails.output_guards import OutputGuard
 
 logger = structlog.get_logger(__name__)
 
@@ -67,13 +69,33 @@ async def intake_node(state: AgentState) -> AgentState:
     """Validate the query and advance to RESEARCH."""
     if not state.query or not state.query.strip():
         raise AgentGraphError("Intake received an empty query")
+    
+    # Input guard: validate query safety
+    input_guard = InputGuard()
+    guard_result = await input_guard.validate(state.query)
+    if not guard_result.passed:
+        logger.warning("Input guard rejected query",
+            violations=[v.description for v in guard_result.violations])
+        raise AgentGraphError(
+            f"Input rejected: {guard_result.violations[0].description}"
+        )
+    
     state.query = state.query.strip()
     state.status = "research"
     return state
 
 
 async def deliver_node(state: AgentState) -> AgentState:
-    """Terminal node — mark the state delivered."""
+    """Terminal node — validate output and mark delivered."""
+    # Output guard: validate answer quality
+    output_guard = OutputGuard()
+    answer = state.current_answer
+    sources = state.sources if state.sources else None
+    guard_result = await output_guard.validate(answer, sources)
+    if not guard_result.passed:
+        logger.warning("Output guard flagged issues",
+            violations=[v.description for v in guard_result.violations])
+    
     state.status = "deliver"
     return state
 

@@ -90,8 +90,8 @@ class CriticAgent:
             verbose=True,
         )
 
-        # Run the crew
-        result = crew.kickoff()
+        # Run the crew without blocking the event loop (invariant #8).
+        result = await crew.kickoff_async()
 
         # Parse the result (CrewAI returns a string, we need to extract scores)
         review_result = self._parse_review(str(result), answer, context)
@@ -169,18 +169,21 @@ class CriticAgent:
         import re
 
         # Try to find a score pattern like "faithfulness: 0.8" or "faithfulness score: 8/10"
+        # Each pattern carries its scale divisor; bare numbers use a heuristic.
         patterns = [
-            rf"{dimension}[:\s]+(\d+\.?\d*)/10",
-            rf"{dimension}[:\s]+(\d+\.?\d*)",
-            rf"{dimension}[:\s]+(\d+\.?\d*)\s*%",
+            (rf"{dimension}[:\s]+(\d+\.?\d*)/10", 10.0),
+            (rf"{dimension}[:\s]+(\d+\.?\d*)\s*%", 100.0),
+            (rf"{dimension}[:\s]+(\d+\.?\d*)", None),
         ]
 
-        for pattern in patterns:
+        for pattern, divisor in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 score = float(match.group(1))
-                # Normalize to 0-1 if needed
-                if score > 1:
+                # Normalize to 0-1 scale
+                if divisor is not None:
+                    score = score / divisor
+                elif score > 1:
                     score = score / 10 if score <= 10 else score / 100
                 return min(max(score, 0.0), 1.0)
 

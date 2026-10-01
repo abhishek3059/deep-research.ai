@@ -36,6 +36,15 @@ _STOPWORDS = frozenset(
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
+# Citation markers (``[Source N]`` / ``[N]``) are metadata, not claims — they
+# must not count as unsupported content when scoring faithfulness.
+_CITATION_RE = re.compile(r"\[(?:source\s+)?\d+\]", re.IGNORECASE)
+
+
+def _strip_citations(text: str) -> str:
+    """Remove citation markers so they cannot fail grounding checks."""
+    return _CITATION_RE.sub(" ", text)
+
 
 def _stem(word: str) -> str:
     """Apply a minimal suffix strip so plurals match their singulars."""
@@ -69,9 +78,10 @@ def score_faithfulness(answer: str, contexts: list[str]) -> float:
     """Share of answer sentences supported by the retrieved contexts.
 
     A sentence counts as supported when at least half of its content
-    tokens appear in the combined context vocabulary.
+    tokens appear in the combined context vocabulary. Citation markers
+    are stripped first: they are metadata, not claims.
     """
-    sentences = _sentences(answer)
+    sentences = _sentences(_strip_citations(answer))
     if not sentences or not contexts:
         return 0.0
     vocab: set[str] = set()

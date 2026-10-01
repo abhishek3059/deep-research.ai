@@ -121,6 +121,7 @@ class AgentState(BaseModel):
     review_notes: str = ""
     review_result: ReviewResult | None = None
     sources: list[dict[str, str]] = Field(default_factory=list)
+    no_coverage: bool = False  # True when retrieval judged the corpus as not covering the query
 
     def add_research_results(self, new_results: list[RetrievalResult]) -> None:
         """Append retrieval passes so loop-backs augment rather than replace.

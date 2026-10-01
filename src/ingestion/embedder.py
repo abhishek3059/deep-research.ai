@@ -55,7 +55,9 @@ class Embedder:
         if settings.openai_api_key:
             return OpenAIEmbeddings(
                 model=resolved_model,
-                openai_api_key=settings.openai_api_key,
+                # `openai_api_key` is a valid model field at runtime; mypy sees only
+                # langchain-openai's plugin-style `__init__(self, data)` signature.
+                openai_api_key=settings.openai_api_key,  # type: ignore[call-arg]
             )
         return OpenAIEmbeddings(model=resolved_model)
 

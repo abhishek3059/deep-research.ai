@@ -45,9 +45,7 @@ def render() -> None:
     health = _fetch_documents()
     if health and health[0].get("status") == "error":
         st.error(health[0]["name"])
-        st.info(
-            "Start the API server first: `uv run python -m src.api.main`"
-        )
+        st.info("Start the API server first: `uv run python -m src.api.main`")
         return
 
     st.success("API server is running")

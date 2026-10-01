@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -14,10 +13,10 @@ from src.agents.prompts import FORMAT_INSTRUCTIONS, RESEARCH_PROMPT
 from src.retrieval.pipeline import RetrievalMeta, RetrievalResult
 from src.vectorstore.base import SearchResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_search_result(idx: int = 1, score: float = 0.9) -> SearchResult:
     """Build a minimal SearchResult for testing."""
@@ -54,6 +53,7 @@ def _make_retrieval_result(n: int = 3) -> RetrievalResult:
 # Prompt tests
 # ---------------------------------------------------------------------------
 
+
 def test_system_prompt_formatting() -> None:
     """RESEARCH_PROMPT and FORMAT_INSTRUCTIONS contain required directives."""
     assert "ONLY" in RESEARCH_PROMPT
@@ -67,6 +67,7 @@ def test_system_prompt_formatting() -> None:
 # ---------------------------------------------------------------------------
 # Memory tests
 # ---------------------------------------------------------------------------
+
 
 def test_memory_add_and_get() -> None:
     """Messages added are returned in order via get_messages."""
@@ -104,6 +105,7 @@ def test_memory_clear() -> None:
 # ---------------------------------------------------------------------------
 # GenerationPipeline tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_generate_answer_returns_expected_keys() -> None:

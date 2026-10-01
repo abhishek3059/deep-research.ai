@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import httpx
 import streamlit as st
+
+if TYPE_CHECKING:
+    from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 API_BASE = "http://localhost:8000"
 
@@ -16,7 +21,7 @@ def _validate_extension(filename: str) -> bool:
     return ext in ALLOWED_EXTENSIONS
 
 
-def upload_documents(uploaded_files: list[object]) -> None:
+def upload_documents(uploaded_files: list[UploadedFile]) -> None:
     """Upload selected documents to the ingestion API.
 
     Args:
@@ -29,7 +34,7 @@ def upload_documents(uploaded_files: list[object]) -> None:
     error_count = 0
 
     for file in uploaded_files:
-        filename = getattr(file, "name", "unknown")
+        filename = file.name or "unknown"
         if not _validate_extension(filename):
             st.warning(f"Skipping unsupported file type: {filename}")
             error_count += 1

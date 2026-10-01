@@ -121,3 +121,140 @@ Previous council advice (ADR-003) recommended simplifying to 1 agent + self-crit
 - Day 6-8: Add crewai, create single CriticAgent
 - Day 9-11: Wire ragas_eval.py, add deepeval
 - Day 12-14: Write README.md, docs/decisions.md, demo script
+
+---
+
+## ADR-005: Zen Free-Model Subagent Block — Hybrid Migration (Strip Pins + Selective Skills)
+
+**Date:** 2026-09-21
+**Status:** Accepted
+**Context:** Around 2026-09-19 Opencode Zen began rejecting `opencode/*-free`
+models when used as subagents (`mode: subagent` invoked via Task tool); they
+remain usable as standalone/primary models. 8 of our `.opencode/agents/*.md`
+subagents were pinned to free models (`mimo-v2.5-free`, `ling-3.0-flash-free`,
+`deepseek-v4-flash-free`, `muse-spark-1.3-contributor-free`) and broke. The
+`ingestion` pin (`opencode/ling-3.0-flash-free`) no longer even exists upstream
+(renamed to `ling-3.0-flash-fin-free`). Council (Architect, Skeptic, Pragmatist,
+Researcher) deliberated: pure skill conversion loses Task isolation, parallelism
+(max 3), and per-agent `permission/*` scoping; pure disable kills the roster.
+**Decision:**
+1. Keeper subagents (`ingestion`, `retrieval`, `quality`, `api`, `ui`) — `model:`
+   line removed, inherit primary model (`opencode/meta/muse-spark-1.3-contributor`
+   from `opencode.json`). Zero orchestration change.
+2. `@developer` — pin KEPT as `agentrouter/deepseek-v4-flash`. agent-router is a
+   separate provider, unaffected by the Zen block; verified via
+   `opencode auth list` (agent-router credential present) and `opencode models`
+   (both `agentrouter/deepseek-v4-flash` and `agentrouter/glm-5.3` listed).
+3. Checklist agents (`code-reviewer`, `security-auditor`, `doc-writer`) —
+   migrated to Skills (`.opencode/skills/*/SKILL.md`), old agent files set to
+   `disable: true`. Skills run inline via Skill tool, no separate model.
+4. `orchestrator.md` / `architect.md` rosters updated with Task-vs-Skill routing.
+**Consequences:** Subagent path works again on paid/Zen primary quota;
+`@developer` keeps its cheap agent-router routing; review/audit/docs run in the
+caller's context (slightly larger context, no child session). Model binding now
+lives in one place (`opencode.json` + developer pin) instead of 12 files.
+**Evidence:** Council deliberation 2026-09-21 (quick mode, 4 personas, unanimous
+hybrid); `opencode models` output 2026-09-21 confirming model IDs.
+
+---
+
+## ADR-006: LangGraph for the Agent State Machine
+
+**Date:** 2026-09-15
+**Status:** Accepted
+**Context:** Phase 2 needed an orchestration loop (intake → research → critique →
+revise → deliver) with conditional edges and a loop guard. Options were a
+hand-rolled state machine, raw LangChain chains, or LangGraph.
+**Decision:** LangGraph `StateGraph` in `src/agents/graph.py`; the pure-Python
+`graph_skeleton.py` stays as a zero-overhead alternative for the review-only path.
+**Consequences:** Conditional edges and recursion limits come free; Pregel adds
+startup cost, so request paths reuse compiled graphs. State is a Pydantic model
+with accumulation semantics for loop-back context growth.
+**Evidence:** `graph.py` compiles; loop-guard tests pass; interview story —
+"persistence, visualization, and conditional edges out of the box".
+
+## ADR-007: CrewAI, One Agent Only (CriticAgent)
+
+**Date:** 2026-09-16
+**Status:** Accepted
+**Context:** ADR-004 budgets framework depth over breadth. A four-agent crew
+(Researcher, Fact-Checker, Synthesizer, Critic) was the original vision.
+**Decision:** A single CrewAI `CriticAgent` wired as a review step; role/goal/
+backstory demonstrate delegation without multi-agent overhead. `review()` is
+async via `kickoff_async()` (event-loop blocking fixed 2026-09-22).
+**Consequences:** Proves the CrewAI pattern at minimum cost; adding agents later
+is additive. Keyword-overlap fallback scoring is used when no LLM judge key exists.
+**Evidence:** `test_crew.py` — 22 tests covering parsing, score extraction, and
+pass/fail logic.
+
+## ADR-008: Guardrails as Middleware with Custom Validators
+
+**Date:** 2026-09-17
+**Status:** Accepted
+**Context:** Needed input validation, output checks, and hallucination detection
+that wrap agent I/O without entangling agent logic (invariant #5).
+**Decision:** Three guards (`InputGuard`, `OutputGuard`, `HallucinationGuard`)
+with custom validators instead of guardrails-ai primitives — the `GuardResult`
+contract maps poorly onto that API. Guards sit at graph intake/deliver nodes.
+**Consequences:** Framework-independent safety layer; 28 guard tests with
+pass AND fail cases; 90%+ coverage target for the module.
+**Evidence:** `tests/unit/test_guards.py` all passing; wired into `graph.py`.
+
+## ADR-009: Ragas + DeepEval with Lexical Fallback
+
+**Date:** 2026-09-16
+**Status:** Accepted
+**Context:** Eval must run in CI with no LLM keys, yet production verdicts need
+real judge scores. Thresholds (faithfulness >0.85, relevancy >0.90) assume an
+LLM judge.
+**Decision:** `RagasEvaluator` prefers the real `ragas` library and degrades to
+deterministic lexical scorers (stemmed token overlap) otherwise; DeepEval mirrors
+this. Fallback scores are informational against production bars — never lower the
+bars to fit the fallback. 2026-09-22: citation markers stripped before
+faithfulness scoring (metadata is not a claim).
+**Consequences:** `scripts/run_evals.py` and `scripts/demo.py` work offline;
+HTML reports always render; `evaluate_batch` is concurrent and order-preserving.
+**Evidence:** `test_ragas_eval.py`, `test_deepeval.py`, `test_datasets.py` green;
+demo prints `eval [lexical-fallback]` mode explicitly.
+
+## ADR-010: Shared Review-Loop Base Class
+
+**Date:** 2026-09-22
+**Status:** Accepted
+**Context:** 2026-09-16 architect review found ~80% duplication between
+`self_critique.py` (411 lines) and `review_agent.py` (418 lines).
+**Decision:** Extract `src/agents/review_loop.py` (`ReviewLoopBase` + structural
+Protocols); subclasses keep only vocabulary (prompts, dimensions, verdict models,
+state fields). Public APIs, prompts, and markers unchanged — both agent test
+files pass unmodified.
+**Consequences:** One place to fix loop mechanics; new review flavors are thin
+subclasses. Result: base 335 lines, shells 176/181 lines.
+**Evidence:** Full gate green — 150/150 tests, ruff clean, mypy strict clean.
+
+## ADR-011: Gate Checks Safety, Pipeline Checks Relevance
+
+**Date:** 2026-09-22
+**Status:** Accepted
+**Context:** The InputGuard topic allow-list hard-rejected queries it didn't
+recognize, but keyword matching cannot tell a paraphrase from an off-topic
+question — legitimate rewordings were being blocked before retrieval ever ran.
+Meanwhile the API had no principled way to say "your corpus doesn't cover this"
+(it 404'd only on truly empty results).
+**Decision:**
+1. `InputGuard._check_topic` is **advisory only** — it logs a warning and never
+   creates a Violation. The gate enforces injection + length (safety).
+2. Relevance is judged **after retrieval** by a coverage floor: top-1 dense
+   cosine similarity must be >= `DEFAULT_MIN_COVERAGE` (0.25). Below the floor,
+   `RetrievalPipeline` returns empty results with truthful `dense_results`
+   counts.
+3. Empty results short-circuit to a templated `NO_COVERAGE_RESPONSE` with
+   zero LLM calls (research node sets `AgentState.no_coverage`; review/revise
+   early-return; deliver skips the citation guard for the template).
+**Consequences:** Paraphrased queries always reach retrieval; off-topic queries
+get an honest "not covered" answer instead of a rejection or a hallucinated
+response. Fused RRF scores are rank-based (~0.016) and unusable as a relevance
+signal — the floor reads the dense leg only. Threshold needs real-embedding
+validation (toy hash embeddings score everything ~0.7+, so the floor cannot
+trip in the key-free demo).
+**Evidence:** 7 new tests (5 floor + 2 short-circuit), full gate green —
+158/158 tests, ruff clean, mypy strict clean.

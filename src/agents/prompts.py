@@ -17,3 +17,19 @@ FORMAT_INSTRUCTIONS = (
     "- End with a brief summary of key findings\n"
     "- Do not fabricate information not present in the context"
 )
+
+# Honest answer used when the retrieval coverage floor trips: the corpus does
+# not cover the query, so no LLM call is made at all. Templated (not
+# LLM-generated) so the wording is stable and never hallucinates coverage.
+NO_COVERAGE_RESPONSE = (
+    "I couldn't find anything in your documents that covers this question, "
+    "so I won't guess. Try rephrasing, or ingest documents on this topic first."
+)
+
+# System instruction reinforcing the coverage contract for generation calls.
+# Belt and suspenders behind the pipeline-level short-circuit: even when
+# results exist, the model must not answer from an empty context.
+COVERAGE_SYSTEM_NOTE = (
+    "If the provided context is empty or clearly unrelated to the question, "
+    "say you cannot answer from the available sources instead of guessing."
+)

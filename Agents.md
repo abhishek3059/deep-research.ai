@@ -691,37 +691,38 @@ Agents should update this section at the end of their session to give the next
 agent a quick status read:
 
 ```
-CURRENT STATE (last updated: 2026-09-17)
+CURRENT STATE (last updated: 2026-09-22)
 ─────────────────────────────────────────
+Gate: 158/158 tests pass · ruff check+format clean · mypy strict clean (62 files)
+Runtime: Python 3.13 pinned (.python-version); key-free demo exits 0.
+Status: all work uncommitted (last commit c5106d0) — commit when human asks.
+
 Phase 1 — RAG Pipeline [COMPLETE]
   [x] Document loaders (PDF, Web, MD, CSV)
   [x] Chunking engine (recursive + semantic)
-  [x] Embedding pipeline (OpenAI done, HF done)
+  [x] Embedding pipeline (OpenAI; HF fallback deferred)
   [x] Vector store (ChromaDB persistent)
   [x] Retrieval engine (dense, sparse, hybrid RRF, reranker)
   [x] Generation pipeline
-  [x] Streamlit UI
-  [x] FastAPI API
+  [x] Streamlit UI (+ eval dashboard)
+  [x] FastAPI API (singleton pipelines, no per-request rebuild)
 
-Phase 2 — Multi-Agent [IN PROGRESS]
+Phase 2 — Multi-Agent [COMPLETE]
   [x] Guardrails (InputGuard, OutputGuard, HallucinationGuard — 28 tests)
-  [ ] LangGraph state machine
-  [ ] CrewAI agents
-  [ ] Agent tools
+  [x] LangGraph state machine (StateGraph, conditional edges, loop guard)
+  [x] CrewAI CriticAgent (async kickoff, 22 tests)
+  [x] ReviewLoopBase shared loop (self_critique + review_agent deduped)
+  [x] Relevance judge: advisory topic gate + retrieval coverage floor (ADR-011)
+  [x] README + ADRs (006-011) + key-free demo script
 
-Phase 3 — Processing & Evals [IN PROGRESS]
-  [x] Input processing (InputGuard)
-  [x] Output processing (OutputGuard, HallucinationGuard)
-  [x] Ragas eval pipeline (lexical fallback)
-  [ ] DeepEval metrics
-  [x] Golden dataset
-  [ ] Wire guards/evals to agent pipeline
+Phase 3 — Processing & Evals [COMPLETE except live-judge bars]
+  [x] Input/output processing guards
+  [x] Ragas + DeepEval pipelines (lexical fallback offline)
+  [x] Golden dataset + HTML reports + eval dashboard
+  [ ] Live LLM-judge scores above bars (needs API keys; fallback is informational)
 
-Phase 4 — Fine-Tuning
-  [ ] Dataset curation
-  [ ] QLoRA training
-  [ ] A/B evaluation
-  [ ] GGUF export
+Phase 4 — Fine-Tuning [DEFERRED by design, ADR-004]
+  [ ] Dataset curation / QLoRA / A-B eval / GGUF export
 ```
 
 ---

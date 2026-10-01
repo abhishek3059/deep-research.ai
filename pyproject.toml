@@ -38,15 +38,21 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = true
+
+# Third-party packages without type stubs (standard practice: ignore only
+# the missing-import error, keep all other checks for these modules).
+[[tool.mypy.overrides]]
+module = "rank_bm25.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

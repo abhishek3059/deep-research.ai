@@ -2,6 +2,9 @@
 description: Writes clean, tested, production-ready Python code for any module
 mode: subagent
 model: agentrouter/deepseek-v4-flash
+# 2026-09-21: kept agentrouter pin — agent-router provider is NOT affected by
+# the Zen opencode/*-free subagent block. Verified working via `opencode auth list`.
+# Optional alt: agentrouter/glm-5.3 (exists, uses agent-router credits).
 temperature: 0.2
 permission:
   edit: allow

@@ -8,10 +8,10 @@ semantic splitter needs an embeddings instance to score sentence boundaries.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import structlog
-from langchain_text_splitters import RecursiveCharacterTextSplitter, TextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.config.constants import (
     DEFAULT_CHUNK_OVERLAP,
@@ -25,6 +25,17 @@ if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
 
 logger = structlog.get_logger(__name__)
+
+
+class _DocumentSplitter(Protocol):
+    """Structural type for splitters exposing ``split_documents``.
+
+    ``RecursiveCharacterTextSplitter`` satisfies this via inheritance;
+    ``SemanticChunker`` (a document transformer, not a ``TextSplitter``
+    subclass) satisfies it structurally.
+    """
+
+    def split_documents(self, documents: list[Document]) -> list[Document]: ...
 
 
 class TextChunker:
@@ -147,7 +158,7 @@ class TextChunker:
         self,
         strategy: ChunkStrategy,
         embeddings: Embeddings | None = None,
-    ) -> TextSplitter:
+    ) -> _DocumentSplitter:
         """Construct the underlying LangChain text splitter."""
         if strategy is ChunkStrategy.RECURSIVE:
             return RecursiveCharacterTextSplitter(

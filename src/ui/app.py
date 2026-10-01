@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.ui.components.file_upload import upload_documents
-from src.ui.pages import knowledge_base, research_chat
+from src.ui.pages import eval_dashboard, knowledge_base, research_chat
 
 st.set_page_config(
     page_title="DeepResearch AI",
@@ -37,11 +37,13 @@ with st.sidebar:
 
     page = st.radio(
         "Navigate",
-        ["💬 Research Chat", "📚 Knowledge Base"],
+        ["?? Research Chat", "?? Knowledge Base", "Eval Dashboard"],
         label_visibility="collapsed",
     )
 
-if page == "💬 Research Chat":
+if page == "?? Research Chat":
     research_chat.render()
-elif page == "📚 Knowledge Base":
+elif page == "?? Knowledge Base":
     knowledge_base.render()
+elif page == "Eval Dashboard":
+    eval_dashboard.render()

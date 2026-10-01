@@ -1,7 +1,7 @@
 ---
 description: Builds src/retrieval/ dense, sparse, hybrid, reranking, multi-query engine
 mode: subagent
-model: opencode/mimo-v2.5-free
+# model: removed 2026-09-21 — Zen free models (opencode/*-free) blocked as subagents; inherit primary model (see ADR-Zen)
 temperature: 0.2
 permission:
   edit: allow

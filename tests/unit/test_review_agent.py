@@ -40,9 +40,7 @@ def _make_search_result(idx: int = 1, score: float = 0.9) -> SearchResult:
         ingested_at="2026-01-01T00:00:00+00:00",
         content_hash=f"hash_{idx}",
     )
-    return SearchResult(
-        id=f"chunk_{idx}", text=f"Context text {idx}", metadata=meta, score=score
-    )
+    return SearchResult(id=f"chunk_{idx}", text=f"Context text {idx}", metadata=meta, score=score)
 
 
 def _make_retrieval_result(query: str = "What is RAG?", n: int = 2) -> RetrievalResult:
@@ -69,9 +67,7 @@ def _review_json(passed: bool, failing: tuple[str, ...] = ()) -> str:
         }
         for name in REVIEW_DIMENSIONS
     }
-    return json.dumps(
-        {"passed": passed, "dimensions": dimensions, "summary": "verdict"}
-    )
+    return json.dumps({"passed": passed, "dimensions": dimensions, "summary": "verdict"})
 
 
 class _ScriptedLLM:
@@ -94,9 +90,7 @@ class _ScriptedLLM:
     def _pick(sequence: list[str], index: int) -> str:
         return sequence[min(index, len(sequence) - 1)]
 
-    async def generate(
-        self, messages: list[dict[str, str]], temperature: float = 0.3
-    ) -> str:
+    async def generate(self, messages: list[dict[str, str]], temperature: float = 0.3) -> str:
         system = messages[0]["content"]
         if REVIEW_MARKER in system:
             value = self._pick(self._reviews, self.review_calls)
@@ -113,15 +107,14 @@ class _ScriptedLLM:
 
 def _make_retrieval(results: list[RetrievalResult] | None = None) -> AsyncMock:
     retrieval = AsyncMock(spec=RetrievalPipeline)
-    retrieval.retrieve = AsyncMock(
-        side_effect=list(results or [_make_retrieval_result()])
-    )
+    retrieval.retrieve = AsyncMock(side_effect=list(results or [_make_retrieval_result()]))
     return retrieval
 
 
 def _make_agent(retrieval: AsyncMock, llm: _ScriptedLLM, **kwargs: object) -> ReviewAgent:
     generation = GenerationPipeline(
-        llm_provider=llm, memory=ConversationMemory()  # type: ignore[arg-type]
+        llm_provider=llm,
+        memory=ConversationMemory(),  # type: ignore[arg-type]
     )
     return ReviewAgent(
         retrieval,
@@ -139,9 +132,7 @@ def _make_agent(retrieval: AsyncMock, llm: _ScriptedLLM, **kwargs: object) -> Re
 @pytest.mark.asyncio
 async def test_review_with_hallucinated_answer_flags_grounding_issue() -> None:
     """A hallucinated answer is flagged and routes back to research."""
-    llm = _ScriptedLLM(
-        reviews=[_review_json(False, failing=("grounding", "relevancy"))]
-    )
+    llm = _ScriptedLLM(reviews=[_review_json(False, failing=("grounding", "relevancy"))])
     agent = _make_agent(_make_retrieval(), llm)
     state = AgentState(query="What is RAG?")
     state.initial_answer = "RAG was invented on Mars in 1987."
@@ -163,9 +154,7 @@ async def test_review_with_hallucinated_answer_flags_grounding_issue() -> None:
 @pytest.mark.asyncio
 async def test_review_with_incomplete_answer_routes_to_revise() -> None:
     """Relevancy/completeness failures route to REVISE, not re-retrieval."""
-    llm = _ScriptedLLM(
-        reviews=[_review_json(False, failing=("relevancy", "completeness"))]
-    )
+    llm = _ScriptedLLM(reviews=[_review_json(False, failing=("relevancy", "completeness"))])
     agent = _make_agent(_make_retrieval(), llm)
     state = AgentState(query="What is RAG?")
     state.initial_answer = "a very incomplete answer"
@@ -284,9 +273,7 @@ async def test_graph_with_grounding_gap_accumulates_research_results() -> None:
             _review_json(True),
         ],
     )
-    retrieval = _make_retrieval(
-        [_make_retrieval_result(), _make_retrieval_result()]
-    )
+    retrieval = _make_retrieval([_make_retrieval_result(), _make_retrieval_result()])
     agent = _make_agent(retrieval, llm)
     graph = build_review_graph(agent, max_iterations=3)
 

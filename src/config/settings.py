@@ -2,6 +2,8 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.config.constants import DEFAULT_MIN_COVERAGE
+
 
 class Settings(BaseSettings):
     """Central configuration for DeepResearch AI.
@@ -37,6 +39,7 @@ class Settings(BaseSettings):
 
     # Retrieval
     top_k: int = 5
+    min_coverage: float = DEFAULT_MIN_COVERAGE
 
     # Application
     log_level: str = "INFO"

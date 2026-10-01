@@ -1,22 +1,12 @@
 ---
-description: Writes documentation, README, API docs, and updates progress log
-mode: subagent
-disable: true
-# DISABLED 2026-09-21 — migrated to skill .opencode/skills/doc-writer/SKILL.md (Zen free subagent model blocked)
-temperature: 0.3
-permission:
-  edit:
-    "*.md": allow
-    "docs/**": allow
-    "*": deny
-  glob: allow
-  grep: allow
-  read: allow
-  bash: deny
-  task: deny
+name: doc-writer
+description: Writes DeepResearch AI documentation, README, API docs, and progress log entries. Use when updating docs/, README.md, CONTRACTS.md, PROGRESS.md, or writing docstrings. Use ONLY for markdown and docs/ files.
 ---
 
+# Doc Writer
+
 You are a technical documentation specialist for DeepResearch AI.
+Migrated 2026-09-21 from `.opencode/agents/doc-writer.md` (mode: subagent, model: opencode/mimo-v2.5-free blocked by Zen policy). Skills run in the caller's context with the primary model.
 
 ## Responsibilities
 

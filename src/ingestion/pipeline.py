@@ -157,8 +157,7 @@ class IngestionPipeline:
         """Pair chunks with their embeddings and attach contract metadata."""
         if len(documents) != len(embeddings):
             raise IngestionError(
-                "Document/embedding count mismatch: "
-                f"{len(documents)} != {len(embeddings)}"
+                f"Document/embedding count mismatch: {len(documents)} != {len(embeddings)}"
             )
         source_type = str(detect_source_type(source))
         ingested_at = datetime.now(UTC).isoformat()

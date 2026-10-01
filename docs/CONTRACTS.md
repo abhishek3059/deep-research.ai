@@ -72,6 +72,12 @@ class RetrievalMeta:
     latency_ms: float          # Total retrieval time
 ```
 
+> **Coverage floor (ADR-011):** `RetrievalPipeline.retrieve()` may return
+> `results=[]` with truthful `dense_results` counts when top-1 dense cosine
+> similarity < `min_coverage` (settings, default 0.25). Callers MUST treat
+> empty results as "corpus does not cover the query" — answer honestly, never
+> generate. Field shape above is unchanged.
+
 ---
 
 ## 4.4 Agents -> Guardrails

@@ -41,3 +41,9 @@ DEFAULT_CHUNK_OVERLAP = 64
 DEFAULT_TOP_K = 5
 MAX_ITERATIONS = 3
 COLLECTION_NAME = "research_documents"
+
+# Minimum top-1 dense cosine similarity for retrieved results to count as
+# coverage. Below this, the corpus is judged not to cover the query and the
+# pipeline answers honestly instead of generating. Conservative by design:
+# unrelated content scores near 0.0–0.2, related content well above 0.4.
+DEFAULT_MIN_COVERAGE = 0.25

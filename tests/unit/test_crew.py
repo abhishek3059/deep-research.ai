@@ -65,10 +65,7 @@ class TestParseReview:
         agent = CriticAgent()
 
         raw_result = (
-            "Faithfulness: 0.7\n"
-            "Relevancy: 0.6\n"
-            "Completeness: 0.5\n"
-            "Answer may be incomplete."
+            "Faithfulness: 0.7\nRelevancy: 0.6\nCompleteness: 0.5\nAnswer may be incomplete."
         )
 
         result = agent._parse_review(raw_result, "answer", ["context"])
@@ -103,9 +100,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "faithfulness: 8/10", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("faithfulness: 8/10", "faithfulness", "answer", ["context"])
         assert score == 0.8
 
     def test_extract_score_with_decimal(self):
@@ -114,9 +109,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "faithfulness: 0.75", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("faithfulness: 0.75", "faithfulness", "answer", ["context"])
         assert score == 0.75
 
     def test_extract_score_with_percentage(self):
@@ -125,9 +118,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "faithfulness: 80%", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("faithfulness: 80%", "faithfulness", "answer", ["context"])
         assert score == 0.8
 
     def test_extract_score_case_insensitive(self):
@@ -136,9 +127,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "FAITHFULNESS: 0.9", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("FAITHFULNESS: 0.9", "faithfulness", "answer", ["context"])
         assert score == 0.9
 
     def test_extract_score_fallback_with_context(self):
@@ -148,9 +137,12 @@ class TestExtractScore:
         agent = CriticAgent()
 
         score = agent._extract_score(
-            "no scores here", "faithfulness", "the answer is correct", ["the answer is correct"]
+            "no scores here",
+            "faithfulness",
+            "the answer is correct",
+            ["the answer is correct"],
         )
-        # Fallback computes overlap: {"the","answer","is","correct"} vs {"the","answer","is","correct"}
+        # Fallback computes overlap over {"the","answer","is","correct"}: 4/4 = 1.0
         # overlap = 4/4 = 1.0
         assert score == 1.0
 
@@ -184,9 +176,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "no scores here", "faithfulness", "answer", []
-        )
+        score = agent._extract_score("no scores here", "faithfulness", "answer", [])
         assert score == 0.5
 
     def test_extract_score_fallback_empty_answer(self):
@@ -195,9 +185,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "no scores here", "faithfulness", "", ["context"]
-        )
+        score = agent._extract_score("no scores here", "faithfulness", "", ["context"])
         assert score == 0.0
 
     def test_extract_score_clamped_above_one(self):
@@ -206,9 +194,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "faithfulness: 11/10", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("faithfulness: 11/10", "faithfulness", "answer", ["context"])
         assert score == 1.0
 
     def test_extract_score_clamped_below_zero(self):
@@ -217,9 +203,7 @@ class TestExtractScore:
 
         agent = CriticAgent()
 
-        score = agent._extract_score(
-            "faithfulness: -5", "faithfulness", "answer", ["context"]
-        )
+        score = agent._extract_score("faithfulness: -5", "faithfulness", "answer", ["context"])
         assert score == 0.0
 
 

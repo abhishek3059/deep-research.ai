@@ -1,7 +1,7 @@
 ---
 description: Builds src/ingestion/ document loading, chunking, embedding, dedup pipeline
 mode: subagent
-model: opencode/ling-3.0-flash-free
+# model: removed 2026-09-21 — Zen free models (opencode/*-free) blocked as subagents; inherit primary model (see ADR-Zen)
 temperature: 0.2
 permission:
   edit: allow

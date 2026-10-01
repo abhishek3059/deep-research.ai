@@ -1,7 +1,7 @@
 ---
 description: Builds src/api/ FastAPI REST endpoints and middleware
 mode: subagent
-model: opencode/deepseek-v4-flash-free
+# model: removed 2026-09-21 — Zen free models (opencode/*-free) blocked as subagents; inherit primary model (see ADR-Zen)
 temperature: 0.2
 permission:
   edit: allow

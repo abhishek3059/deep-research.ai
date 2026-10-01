@@ -29,6 +29,7 @@ from src.vectorstore.base import SearchResult
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_search_result(idx: int = 1, score: float = 0.9) -> SearchResult:
     meta = ChunkMetadata(
         source=f"doc_{idx}.pdf",
@@ -38,9 +39,7 @@ def _make_search_result(idx: int = 1, score: float = 0.9) -> SearchResult:
         ingested_at="2026-01-01T00:00:00+00:00",
         content_hash=f"hash_{idx}",
     )
-    return SearchResult(
-        id=f"chunk_{idx}", text=f"Context text {idx}", metadata=meta, score=score
-    )
+    return SearchResult(id=f"chunk_{idx}", text=f"Context text {idx}", metadata=meta, score=score)
 
 
 def _make_retrieval_result(query: str = "What is RAG?", n: int = 2) -> RetrievalResult:
@@ -64,9 +63,7 @@ def _critique_json(passed: bool, failing: tuple[str, ...] = ()) -> str:
         name: {"passed": name not in failing, "issue": "" if name not in failing else f"bad {name}"}
         for name in CRITIQUE_DIMENSIONS
     }
-    return json.dumps(
-        {"passed": passed, "dimensions": dimensions, "summary": "verdict"}
-    )
+    return json.dumps({"passed": passed, "dimensions": dimensions, "summary": "verdict"})
 
 
 class _ScriptedLLM:
@@ -89,9 +86,7 @@ class _ScriptedLLM:
     def _pick(sequence: list[str], index: int) -> str:
         return sequence[min(index, len(sequence) - 1)]
 
-    async def generate(
-        self, messages: list[dict[str, str]], temperature: float = 0.3
-    ) -> str:
+    async def generate(self, messages: list[dict[str, str]], temperature: float = 0.3) -> str:
         system = messages[0]["content"]
         if CRITIQUE_MARKER in system:
             value = self._pick(self._critiques, self.critique_calls)
@@ -108,17 +103,14 @@ class _ScriptedLLM:
 
 def _make_retrieval(results: list[RetrievalResult] | None = None) -> AsyncMock:
     retrieval = AsyncMock(spec=RetrievalPipeline)
-    retrieval.retrieve = AsyncMock(
-        side_effect=list(results or [_make_retrieval_result()])
-    )
+    retrieval.retrieve = AsyncMock(side_effect=list(results or [_make_retrieval_result()]))
     return retrieval
 
 
-def _make_agent(
-    retrieval: AsyncMock, llm: _ScriptedLLM, **kwargs: object
-) -> SelfCritiqueAgent:
+def _make_agent(retrieval: AsyncMock, llm: _ScriptedLLM, **kwargs: object) -> SelfCritiqueAgent:
     generation = GenerationPipeline(
-        llm_provider=llm, memory=ConversationMemory()  # type: ignore[arg-type]
+        llm_provider=llm,
+        memory=ConversationMemory(),  # type: ignore[arg-type]
     )
     return SelfCritiqueAgent(
         retrieval,
@@ -131,6 +123,7 @@ def _make_agent(
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_run_with_good_answer_skips_revision() -> None:
@@ -153,12 +146,11 @@ async def test_run_with_good_answer_skips_revision() -> None:
 # Critique identification
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_critique_with_wrong_answer_flags_grounding_issues() -> None:
     """A hallucinated answer is flagged and routes back to research."""
-    llm = _ScriptedLLM(
-        critiques=[_critique_json(False, failing=("faithfulness", "accuracy"))]
-    )
+    llm = _ScriptedLLM(critiques=[_critique_json(False, failing=("faithfulness", "accuracy"))])
     agent = _make_agent(_make_retrieval(), llm)
     state = AgentState(query="What is RAG?")
     state.initial_answer = "RAG was invented on Mars in 1987."
@@ -179,9 +171,7 @@ async def test_critique_with_wrong_answer_flags_grounding_issues() -> None:
 @pytest.mark.asyncio
 async def test_critique_with_shallow_answer_routes_to_revise() -> None:
     """Relevancy/accuracy failures route to REVISE, not re-retrieval."""
-    llm = _ScriptedLLM(
-        critiques=[_critique_json(False, failing=("relevancy", "accuracy"))]
-    )
+    llm = _ScriptedLLM(critiques=[_critique_json(False, failing=("relevancy", "accuracy"))])
     agent = _make_agent(_make_retrieval(), llm)
     state = AgentState(query="What is RAG?")
     state.initial_answer = "something off topic"
@@ -195,6 +185,7 @@ async def test_critique_with_shallow_answer_routes_to_revise() -> None:
 # ---------------------------------------------------------------------------
 # Revision
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_run_with_weak_answer_produces_revised_answer() -> None:
@@ -223,6 +214,7 @@ async def test_run_with_weak_answer_produces_revised_answer() -> None:
 # ---------------------------------------------------------------------------
 # Loop guard
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_run_with_persistent_failures_respects_loop_guard() -> None:
@@ -262,6 +254,7 @@ async def test_run_with_custom_max_iterations_bounds_critiques() -> None:
 # Graph: accumulation + lifecycle
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_graph_with_context_gap_accumulates_research_results() -> None:
     """A faithfulness failure loops back and appends a second retrieval pass."""
@@ -272,9 +265,7 @@ async def test_graph_with_context_gap_accumulates_research_results() -> None:
             _critique_json(True),
         ],
     )
-    retrieval = _make_retrieval(
-        [_make_retrieval_result(), _make_retrieval_result()]
-    )
+    retrieval = _make_retrieval([_make_retrieval_result(), _make_retrieval_result()])
     agent = _make_agent(retrieval, llm)
     graph = build_graph(agent, max_iterations=3)
 
@@ -312,6 +303,7 @@ async def test_graph_intake_with_empty_query_raises_agent_graph_error() -> None:
 # ---------------------------------------------------------------------------
 # Parsing + merging
 # ---------------------------------------------------------------------------
+
 
 def test_parse_critique_with_non_json_failure_text_marks_failed() -> None:
     """Keyword fallback catches a non-JSON failure verdict."""
@@ -352,3 +344,42 @@ def test_agent_state_accumulation_preserves_all_passes() -> None:
     state.add_research_results([_make_retrieval_result()])
 
     assert len(state.research_results) == 3
+
+
+# ---------------------------------------------------------------------------
+# No-coverage short-circuit
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_research_with_empty_results_delivers_honest_short_circuit() -> None:
+    """A tripped coverage floor delivers without any LLM call."""
+    from src.agents.prompts import NO_COVERAGE_RESPONSE
+
+    llm = _ScriptedLLM()
+    agent = _make_agent(_make_retrieval([_make_retrieval_result(n=0)]), llm)
+    state = AgentState(query="Lottery numbers?")
+
+    state = await agent.research(state)
+
+    assert state.no_coverage is True
+    assert state.status == "deliver"
+    assert state.initial_answer == NO_COVERAGE_RESPONSE
+    assert state.sources == []
+    assert llm.generation_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_run_with_no_coverage_returns_honest_answer_without_critique() -> None:
+    """run() on an uncovered query answers honestly with zero iterations."""
+    from src.agents.prompts import NO_COVERAGE_RESPONSE
+
+    llm = _ScriptedLLM()
+    agent = _make_agent(_make_retrieval([_make_retrieval_result(n=0)]), llm)
+
+    result = await agent.run("Lottery numbers?")
+
+    assert result.answer == NO_COVERAGE_RESPONSE
+    assert result.iterations == 0
+    assert llm.generation_calls == 0
+    assert llm.critique_calls == 0

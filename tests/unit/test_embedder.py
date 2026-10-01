@@ -29,9 +29,7 @@ class TestEmbedder:
         from langchain_core.documents import Document
 
         mock_instance = MagicMock()
-        mock_instance.aembed_documents = AsyncMock(
-            return_value=[[0.1, 0.2], [0.3, 0.4]]
-        )
+        mock_instance.aembed_documents = AsyncMock(return_value=[[0.1, 0.2], [0.3, 0.4]])
         mock_cls.return_value = mock_instance
 
         embedder = Embedder(model="test-model", embeddings=mock_instance)

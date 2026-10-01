@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from unittest.mock import AsyncMock, patch
 
@@ -9,6 +10,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
+from src.api.routes import query as query_module
+
+
+@pytest.fixture(autouse=True)
+def _fresh_pipelines() -> Iterator[None]:
+    """Reset route-level pipeline singletons so tests cannot leak state."""
+    query_module._retrieval = None
+    query_module._generator = None
+    yield
+    query_module._retrieval = None
+    query_module._generator = None
 
 
 @dataclass
@@ -42,9 +54,7 @@ class MockRetrievalMeta:
 class MockRetrievalResult:
     query: str = "test query"
     expanded_queries: list[str] = field(default_factory=lambda: ["test query"])
-    results: list[MockSearchResult] = field(
-        default_factory=lambda: [MockSearchResult()]
-    )
+    results: list[MockSearchResult] = field(default_factory=lambda: [MockSearchResult()])
     retrieval_metadata: MockRetrievalMeta = field(default_factory=MockRetrievalMeta)
 
 
@@ -76,7 +86,15 @@ def test_query_endpoint(client: TestClient) -> None:
     mock_result = MockRetrievalResult()
     mock_gen_result = {
         "answer": "Test document content",
-        "sources": [{"source": "test.pdf", "source_type": "pdf", "id": "1", "score": "0.9", "reference": "[Source 1]"}],
+        "sources": [
+            {
+                "source": "test.pdf",
+                "source_type": "pdf",
+                "id": "1",
+                "score": "0.9",
+                "reference": "[Source 1]",
+            }
+        ],
         "query": "test query",
     }
 

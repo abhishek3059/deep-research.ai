@@ -12,7 +12,7 @@ import structlog
 
 from src.agents.llm_provider import LLMProvider
 from src.agents.memory import ConversationMemory
-from src.agents.prompts import FORMAT_INSTRUCTIONS, RESEARCH_PROMPT
+from src.agents.prompts import COVERAGE_SYSTEM_NOTE, FORMAT_INSTRUCTIONS, RESEARCH_PROMPT
 from src.retrieval.pipeline import RetrievalResult
 
 logger = structlog.get_logger(__name__)
@@ -65,8 +65,12 @@ class GenerationPipeline:
     # -- private --------------------------------------------------------------
 
     def _build_messages(self, query: str, context: str) -> list[dict[str, str]]:
-        """Assemble the full message list for the LLM."""
-        system_content = f"{RESEARCH_PROMPT}\n\n{FORMAT_INSTRUCTIONS}"
+        """Assemble the full message list for the LLM.
+
+        Layout: system instructions first, then conversation memory, then the
+        current user turn carrying the retrieved context plus the question.
+        """
+        system_content = f"{RESEARCH_PROMPT}\n\n{FORMAT_INSTRUCTIONS}\n\n{COVERAGE_SYSTEM_NOTE}"
         messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
         messages.extend(self._memory.get_messages())
         messages.append(

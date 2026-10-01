@@ -4,13 +4,11 @@ States: ``INTAKE -> RESEARCH -> REVIEW -> REVISE -> DELIVER`` with a
 conditional edge from REVIEW back to RESEARCH (grounding gap) and a
 REVIEW -> REVISE edge for answers that merely need reworking.
 
-Why pure Python instead of LangGraph?  Same rationale as
-:mod:`src.agents.graph` (ADR-003): LangGraph is not declared in
-``pyproject.toml``, so using it would violate the dependency-discipline rule.
-This module has no third-party dependencies beyond the project's own state
-model.  Node logic lives in :class:`~src.agents.review_agent.ReviewAgent`; the
-graph owns only control flow and the loop guard, mirroring LangGraph's
-node/edge vocabulary so it can be swapped later.
+Why pure Python when LangGraph is a declared dependency?  This module is the
+lightweight, zero-overhead alternative to :mod:`src.agents.graph`: no checkpointer,
+no Pregel super-steps, trivial to unit-test.  Node logic lives in
+:class:`~src.agents.review_agent.ReviewAgent`; the graph owns only control flow
+and the loop guard, mirroring LangGraph's node/edge vocabulary.
 """
 
 from __future__ import annotations
@@ -129,9 +127,7 @@ class ReviewGraph:
 
             steps += 1
             if steps > step_guard:
-                raise AgentLoopGuardError(
-                    f"Graph exceeded {step_guard} steps without delivering"
-                )
+                raise AgentLoopGuardError(f"Graph exceeded {step_guard} steps without delivering")
 
         logger.info(
             "Review graph delivered",
@@ -152,10 +148,11 @@ class ReviewGraph:
         """
         if state.status == "deliver":
             return "deliver"
-        if (
-            state.iteration_count >= state.max_iterations
-            and state.status in {"research", "review", "revise"}
-        ):
+        if state.iteration_count >= state.max_iterations and state.status in {
+            "research",
+            "review",
+            "revise",
+        }:
             # Loop guard: stop the REVIEW -> RESEARCH cycle and deliver.
             return "deliver"
         return state.status

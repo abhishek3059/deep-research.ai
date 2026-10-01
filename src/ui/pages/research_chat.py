@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import httpx
 import streamlit as st
 
@@ -19,7 +21,7 @@ def _send_query(query: str) -> dict[str, object] | None:
             timeout=60.0,
         )
         if response.status_code == 200:
-            return response.json()
+            return cast("dict[str, object] | None", response.json())
         elif response.status_code == 404:
             st.warning("No relevant documents found. Try ingesting some files first.")
             return None
@@ -54,21 +56,26 @@ def render() -> None:
             result = _send_query(query)
 
         if result:
-            answer = result.get("answer", "")
-            sources = result.get("sources", [])
+            answer = str(result.get("answer", ""))
+            raw_sources = result.get("sources", [])
+            sources = [str(s) for s in raw_sources] if isinstance(raw_sources, list) else []
             display_message("assistant", answer)
             display_sources(sources)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": answer,
-                "sources": sources,
-            })
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "sources": sources,
+                }
+            )
         else:
             display_message("assistant", "I couldn't find an answer. Please try rephrasing.")
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": "I couldn't find an answer. Please try rephrasing.",
-            })
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": "I couldn't find an answer. Please try rephrasing.",
+                }
+            )
 
 
 if __name__ == "__main__":

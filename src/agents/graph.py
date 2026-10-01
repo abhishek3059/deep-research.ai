@@ -17,9 +17,10 @@ new callers can drive the compiled graph directly via
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import Any
 
 import structlog
+from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -55,31 +56,30 @@ CRITIQUE_BRANCHES: tuple[str, ...] = ("research", "revise", "deliver")
 MIN_RECURSION_LIMIT = 25
 
 # ``ContextT`` is unused by this graph, so it is pinned to ``None``.
-SelfCritiqueStateGraph: TypeAlias = StateGraph[AgentState, None, AgentState, AgentState]
-CompiledSelfCritiqueGraph: TypeAlias = CompiledStateGraph[
-    AgentState, None, AgentState, AgentState
-]
+type SelfCritiqueStateGraph = StateGraph[AgentState, None, AgentState, AgentState]
+type CompiledSelfCritiqueGraph = CompiledStateGraph[AgentState, None, AgentState, AgentState]
 
 
 # ---------------------------------------------------------------------------
 # Graph-owned nodes + router (pure functions, no instance state needed)
 # ---------------------------------------------------------------------------
 
+
 async def intake_node(state: AgentState) -> AgentState:
     """Validate the query and advance to RESEARCH."""
     if not state.query or not state.query.strip():
         raise AgentGraphError("Intake received an empty query")
-    
+
     # Input guard: validate query safety
     input_guard = InputGuard()
     guard_result = await input_guard.validate(state.query)
     if not guard_result.passed:
-        logger.warning("Input guard rejected query",
-            violations=[v.description for v in guard_result.violations])
-        raise AgentGraphError(
-            f"Input rejected: {guard_result.violations[0].description}"
+        logger.warning(
+            "Input guard rejected query",
+            violations=[v.description for v in guard_result.violations],
         )
-    
+        raise AgentGraphError(f"Input rejected: {guard_result.violations[0].description}")
+
     state.query = state.query.strip()
     state.status = "research"
     return state
@@ -87,15 +87,23 @@ async def intake_node(state: AgentState) -> AgentState:
 
 async def deliver_node(state: AgentState) -> AgentState:
     """Terminal node — validate output and mark delivered."""
+    if state.no_coverage:
+        # The honest short-circuit carries no citations by design; the
+        # output guard's citation requirement does not apply to it.
+        logger.info("Delivering no-coverage answer, output guard skipped")
+        state.status = "deliver"
+        return state
     # Output guard: validate answer quality
     output_guard = OutputGuard()
     answer = state.current_answer
     sources = state.sources if state.sources else None
     guard_result = await output_guard.validate(answer, sources)
     if not guard_result.passed:
-        logger.warning("Output guard flagged issues",
-            violations=[v.description for v in guard_result.violations])
-    
+        logger.warning(
+            "Output guard flagged issues",
+            violations=[v.description for v in guard_result.violations],
+        )
+
     state.status = "deliver"
     return state
 
@@ -157,6 +165,7 @@ def build_state_graph(agent: SelfCritiqueAgent) -> SelfCritiqueStateGraph:
 # ---------------------------------------------------------------------------
 # Backwards-compatible wrapper
 # ---------------------------------------------------------------------------
+
 
 class SelfCritiqueGraph:
     """Compiled LangGraph state machine wrapping a :class:`SelfCritiqueAgent`.
@@ -248,9 +257,7 @@ class SelfCritiqueGraph:
                 the graph delivers (defense in depth behind the edge guard).
         """
         resolved = state if isinstance(state, AgentState) else AgentState.model_validate(state)
-        config: dict[str, int] = {
-            "recursion_limit": self._recursion_limit(resolved.max_iterations)
-        }
+        config: RunnableConfig = {"recursion_limit": self._recursion_limit(resolved.max_iterations)}
         try:
             raw: object = await self._compiled.ainvoke(resolved, config)
         except GraphRecursionError as exc:

@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
-
-import pytest
 
 from src.ingestion.pipeline import ChunkMetadata
 from src.retrieval.hybrid import HybridRetriever
 from src.vectorstore.base import SearchResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers

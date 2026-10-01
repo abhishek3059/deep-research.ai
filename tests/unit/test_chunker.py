@@ -6,7 +6,6 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from src.config.constants import ChunkStrategy
 from src.ingestion import ChunkingError
 from src.ingestion.chunker import TextChunker
 

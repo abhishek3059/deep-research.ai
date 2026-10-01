@@ -1,14 +1,17 @@
 """Input validation guards (middleware around agent input).
 
-Runs three checks on an incoming user query:
+Runs two *enforcing* checks on an incoming user query:
 
 1. Injection detection — prompt-injection phrases such as
    "ignore previous instructions" or "you are now".
-2. Topic relevance — flags queries that are clearly off-topic for a
-   research platform (e.g. "what's the weather"). When ``topic_keywords``
-   are supplied, the query must additionally contain at least one of them.
-3. Query length validation — rejects empty queries and queries longer
+2. Query length validation — rejects empty queries and queries longer
    than ``max_length`` characters.
+
+Topic relevance is *advisory only* (see :meth:`InputGuard._check_topic`):
+a pre-retrieval keyword gate cannot judge whether a query relates to the
+user's documents, and hard-rejecting on vocabulary mismatch destroys trust.
+Relevance is decided post-retrieval by the coverage floor in
+:mod:`src.retrieval.pipeline`, which measures against the real corpus.
 """
 
 from __future__ import annotations
@@ -67,7 +70,11 @@ class InputGuard:
         self._topic_keywords = [k.lower() for k in topic_keywords] if topic_keywords else []
 
     async def validate(self, query: str) -> GuardResult:
-        """Validate input query against injection, topic, and length rules.
+        """Validate input query against injection and length rules.
+
+        Topic relevance is advisory (logged, never a violation): the gate
+        checks safety and shape, while the retrieval coverage floor decides
+        relevance against the actual corpus.
 
         Args:
             query: Raw user query.
@@ -145,27 +152,29 @@ class InputGuard:
         return violations
 
     def _check_topic(self, query: str) -> list[Violation]:
-        """Flag off-topic queries and enforce topic_keywords when set."""
+        """Advisory topic signal — never blocks the query.
+
+        Logs (but does not report) off-topic-looking queries and
+        topic-keyword misses. Rationale: a keyword gate cannot tell whether
+        a paraphrased question relates to the user's documents; false
+        rejects cost users, while a wasted retrieval costs cents. Relevance
+        is enforced post-retrieval by the coverage floor instead.
+
+        Always returns an empty list so ``passed`` is unaffected.
+        """
         if not query.strip():
             return []  # Length check already reports empty queries.
         lowered = query.lower()
         for pattern in _OFF_TOPIC_PATTERNS:
             if pattern.search(query):
-                return [
-                    Violation(
-                        guard_name="InputGuard",
-                        severity="medium",
-                        description="Query looks off-topic for a research platform.",
-                        span=None,
-                    )
-                ]
-        if self._topic_keywords and not any(k in lowered for k in self._topic_keywords):
-            return [
-                Violation(
-                    guard_name="InputGuard",
-                    severity="medium",
-                    description="Query does not match any configured topic keyword.",
-                    span=None,
+                logger.warning(
+                    "Query looks off-topic (advisory only, not blocking)",
+                    query=query[:120],
                 )
-            ]
+                return []
+        if self._topic_keywords and not any(k in lowered for k in self._topic_keywords):
+            logger.warning(
+                "Query matches no topic keyword (advisory only, not blocking)",
+                query=query[:120],
+            )
         return []

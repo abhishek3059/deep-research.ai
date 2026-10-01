@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -18,7 +18,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable[..., Any]) -> Response:
         started = time.perf_counter()
-        response = await call_next(request)
+        # Starlette types `call_next` as returning `Any`; the ASGI contract
+        # guarantees a Response here.
+        response = cast(Response, await call_next(request))
         elapsed_ms = (time.perf_counter() - started) * 1000
         logger.info(
             "HTTP request",

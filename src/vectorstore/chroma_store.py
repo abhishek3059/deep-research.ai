@@ -7,7 +7,8 @@ rest of the application can ``await`` all store operations.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import chromadb
 import structlog
@@ -18,13 +19,19 @@ from src.ingestion.pipeline import ChunkMetadata, ProcessedChunk
 from src.vectorstore import SearchError, UpsertError, VectorStoreConnectionError, VectorStoreError
 from src.vectorstore.base import SearchResult
 
+if TYPE_CHECKING:
+    # `ClientAPI` is re-exported dynamically at `chromadb` top level, which
+    # mypy cannot follow; the canonical definitions live in `chromadb.api`.
+    from chromadb.api import ClientAPI
+    from chromadb.api.types import Metadata
+
 logger = structlog.get_logger(__name__)
 
 # Module-level client — created once and reused across the process.
-_client: chromadb.ClientAPI | None = None
+_client: ClientAPI | None = None
 
 
-def _get_client() -> chromadb.ClientAPI:
+def _get_client() -> ClientAPI:
     """Return a persistent ChromaDB client, creating it on first call."""
     global _client
     if _client is None:
@@ -38,7 +45,7 @@ class ChromaStore:
     def __init__(
         self,
         collection_name: str = COLLECTION_NAME,
-        client: chromadb.ClientAPI | None = None,
+        client: ClientAPI | None = None,
     ) -> None:
         """Initialise the ChromaDB collection.
 
@@ -75,19 +82,25 @@ class ChromaStore:
             Ranked list of ``SearchResult``, highest similarity first.
         """
         try:
+            query_embeddings: list[Sequence[float] | Sequence[int]] = [query_embedding]
             results = await asyncio.to_thread(
                 self._collection.query,
-                query_embeddings=[query_embedding],
+                query_embeddings=query_embeddings,
                 n_results=top_k,
                 where=filters,
             )
         except Exception as exc:
             raise SearchError("ChromaDB query failed") from exc
 
-        ids: list[str] = results.get("ids", [[]])[0]
-        documents: list[str] = results.get("documents", [[]])[0]
-        distances: list[float] = results.get("distances", [[]])[0]
-        metadatas: list[dict[str, Any]] = results.get("metadatas", [[]])[0]
+        # ChromaDB result fields are optional in its types; `or [[]]` covers
+        # both a missing key and an explicit None with zero results.
+        ids: list[str] = (results.get("ids") or [[]])[0]
+        documents: list[str] = (results.get("documents") or [[]])[0]
+        distances: list[float] = (results.get("distances") or [[]])[0]
+        # Keep 1:1 alignment with ids/documents (None metadata -> empty dict).
+        metadatas: list[dict[str, Any]] = [
+            dict(m) if m is not None else {} for m in (results.get("metadatas") or [[]])[0]
+        ]
 
         search_results: list[SearchResult] = []
         for doc_id, doc, dist, meta in zip(ids, documents, distances, metadatas, strict=True):
@@ -116,8 +129,8 @@ class ChromaStore:
 
         ids = [c.id for c in chunks]
         documents = [c.text for c in chunks]
-        embeddings = [c.embedding for c in chunks]
-        metadatas = [_meta_to_dict(c.metadata) for c in chunks]
+        embeddings: list[Sequence[float] | Sequence[int]] = [c.embedding for c in chunks]
+        metadatas: list[Metadata] = [_meta_to_dict(c.metadata) for c in chunks]
 
         try:
             await asyncio.to_thread(

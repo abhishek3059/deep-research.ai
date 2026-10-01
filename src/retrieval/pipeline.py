@@ -12,11 +12,12 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from src.config.constants import DEFAULT_TOP_K
+from src.config.constants import DEFAULT_MIN_COVERAGE, DEFAULT_TOP_K
 from src.ingestion.embedder import Embedder
+from src.ingestion.pipeline import ChunkMetadata
 from src.retrieval.dense import DenseRetriever
 from src.retrieval.hybrid import HybridRetriever
-from src.retrieval.multi_query import MultiQueryExpander
+from src.retrieval.multi_query import MultiQueryExpander, QueryLLM
 from src.retrieval.reranker import Reranker
 from src.retrieval.sparse import SparseRetriever
 from src.vectorstore.base import SearchResult
@@ -65,11 +66,12 @@ class RetrievalPipeline:
         vector_store: VectorStoreProtocol,
         embedder: Embedder | None = None,
         documents: list[str] | None = None,
-        metadatas: list | None = None,
+        metadatas: list[ChunkMetadata] | None = None,
         enable_sparse: bool = True,
         enable_rerank: bool = True,
         enable_multi_query: bool = True,
-        llm: object | None = None,
+        llm: QueryLLM | None = None,
+        min_coverage: float = DEFAULT_MIN_COVERAGE,
     ) -> None:
         """Wire pipeline stages.
 
@@ -82,12 +84,19 @@ class RetrievalPipeline:
             enable_rerank: Whether to apply cross-encoder reranking.
             enable_multi_query: Whether to expand the query.
             llm: Optional LLM for multi-query expansion.
+            min_coverage: Minimum top-1 dense cosine similarity for the
+                corpus to count as covering the query. Below this the
+                pipeline returns no results (with truthful counts) so
+                callers answer honestly instead of generating. ``0.0``
+                disables the floor. Relevance is judged here — against the
+                real corpus — never by pre-retrieval keyword matching.
         """
         self._vector_store = vector_store
         self._embedder = embedder or Embedder()
         self._enable_sparse = enable_sparse
         self._enable_rerank = enable_rerank
         self._enable_multi_query = enable_multi_query
+        self._min_coverage = min_coverage
 
         self._dense = DenseRetriever(vector_store)
         self._sparse: SparseRetriever | None = None
@@ -125,6 +134,31 @@ class RetrievalPipeline:
             top_k=top_k * 2 if self._sparse else top_k,
         )
         dense_count = len(dense_results)
+
+        # Coverage floor: the top-1 dense cosine similarity measures whether
+        # the corpus covers the query at all. Below the floor, return no
+        # results (counts stay truthful) so callers answer honestly instead
+        # of generating from noise. Set min_coverage=0.0 to disable.
+        top_dense = dense_results[0].score if dense_results else 0.0
+        if self._min_coverage > 0 and top_dense < self._min_coverage:
+            logger.info(
+                "Coverage floor tripped — corpus does not cover query",
+                top_dense_score=round(top_dense, 4),
+                floor=self._min_coverage,
+            )
+            elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+            return RetrievalResult(
+                query=query,
+                expanded_queries=queries,
+                results=[],
+                retrieval_metadata=RetrievalMeta(
+                    strategy="hybrid" if self._sparse is not None else "dense",
+                    dense_results=dense_count,
+                    sparse_results=0,
+                    reranked=False,
+                    latency_ms=elapsed_ms,
+                ),
+            )
 
         # 3. Sparse retrieval
         sparse_results: list[SearchResult] = []

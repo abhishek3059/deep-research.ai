@@ -541,3 +541,231 @@ All 8 invariants from AGENTS.md §7 are being met:
 10. Add health check for vector store connectivity
 11. Add structured error responses for all API endpoints
 12. Document .env.example entries for DeepEval/Ragas LLM keys
+
+---
+
+## Session: 2026-09-21 11:30 — opencode-config/hybrid-migration
+
+### What I Built
+- Consulted council (quick mode: Architect, Skeptic, Pragmatist, Researcher) on
+  Zen free-model subagent block; unanimous verdict = hybrid (strip pins + selective skills)
+- Stripped `model:` pins from 5 keeper subagents (ingestion, retrieval, quality, api, ui)
+  — they now inherit primary model from opencode.json
+- Kept `@developer` pinned to `agentrouter/deepseek-v4-flash` (working provider, unaffected)
+- Created 3 Skills: `.opencode/skills/code-reviewer/SKILL.md`,
+  `.opencode/skills/security-auditor/SKILL.md`, `.opencode/skills/doc-writer/SKILL.md`
+- Disabled old agent files (code-reviewer, security-auditor, doc-writer) via `disable: true`
+- Updated orchestrator.md + architect.md rosters with Task-vs-Skill routing rules
+- Added ADR-005 to docs/decisions.md
+
+### Decisions Made
+- ADR-005: hybrid over pure-skills (council: skills lose Task isolation/parallelism/permissions)
+- Developer stays on agent-router (user confirmed "Restore deepseek-flash"); glm-5.3
+  (`agentrouter/glm-5.3`) confirmed available for later switch to spend agent-router credits
+
+### What Went Wrong
+- Initially stripped developer's agentrouter pin too — user caught it (working route).
+  Restored. Lesson: only `opencode/*-free` pins were broken, not third-party providers.
+
+### Known Issues
+- Primaries (orchestrator, architect, mentor) still on `opencode/mimo-v2.5-free` —
+  allowed as standalone today, but one policy change away from breaking; consider
+  moving them to a paid/stable model.
+- No restart performed — user must quit + restart opencode for config changes to load.
+
+### What's Next
+- User restarts opencode; smoke-test: Task(@retrieval) + code-reviewer skill
+- Optional: switch @developer to `agentrouter/glm-5.3` to use credits
+- Optional: add `skills.paths` to opencode.json if skills don't auto-load
+
+### Files Changed
+- [MOD] `.opencode/agents/{ingestion,retrieval,quality,api,ui}.md` — removed model pin
+- [MOD] `.opencode/agents/developer.md` — kept agentrouter/deepseek-v4-flash + note
+- [NEW] `.opencode/skills/{code-reviewer,security-auditor,doc-writer}/SKILL.md`
+- [MOD] `.opencode/agents/{code-reviewer,security-auditor,doc-writer}.md` — disable: true
+- [MOD] `.opencode/agents/{orchestrator,architect}.md` — Task-vs-Skill routing
+- [MOD] `docs/decisions.md` — ADR-005
+
+---
+
+## Session: 2026-09-21 11:45 — remove-external-primaries
+
+### What I Did
+- Deleted `.opencode/agents/orchestrator.md`, `architect.md`, `mentor.md` per user:
+  these primaries are defined/run outside the opencode harness, so keeping them
+  in-harness was dead config (and `mimo-v2.5-free` primary pins were one policy
+  change away from breaking anyway).
+- Removed `"default_agent": "orchestrator"` from `opencode.json` — falls back to
+  built-in `build` agent. Verified no remaining files reference the deleted agents
+  (only coincidental "pipeline orchestrator" words in ingestion/retrieval prompts).
+
+### Resulting Shape
+- Active Task subagents (6): developer (agentrouter/deepseek-v4-flash), ingestion,
+  retrieval, quality, api, ui (inherit primary model)
+- Disabled (3): code-reviewer, security-auditor, doc-writer → live as Skills
+- Skills (4): council, code-reviewer, security-auditor, doc-writer
+- No custom primaries — drive via built-in `build`/`plan` + Task + Skill tools.
+
+### What's Next
+- Restart opencode; smoke-test Task(@developer) + code-reviewer skill under `build`.
+
+---
+
+## Session: 2026-09-21 12:15 — mentor-as-skill
+
+### What I Did
+- Restored mentor as `.opencode/skills/mentor/SKILL.md` (content carried over from
+  deleted `mentor.md` agent: teaching role, response protocol, 4-level AI-engineer
+  curriculum, project status reference, explain-only rules).
+- Frontmatter description front-loads trigger keywords (mentor, learn, teach, explain,
+  RAG, LangChain, LangGraph) so it auto-loads on learning questions.
+
+### Files Changed
+- [NEW] `.opencode/skills/mentor/SKILL.md`
+
+### What's Next
+- Restart opencode; invoke by asking e.g. "mentor, explain RRF" or any learning question.
+
+---
+
+## Session: 2026-09-22 — CEO mandate checkpoint 3 (Week 4 docs + Phase 3 + hardening)
+
+### What I Built
+- `scripts/ingest_sample_data.py`: real implementation (writes 3 starter fixtures,
+  ingests via IngestionPipeline, upserts to Chroma; clean exit when no API key).
+- `scripts/demo.py`: key-free end-to-end prototype (hash-trigram embeddings,
+  isolated temp ChromaDB, retrieve → 3 guards → lexical Ragas → HTML report).
+  Verified exit 0, 3/3 queries PASS.
+- `src/ui/pages/eval_dashboard.py` + nav wiring: report browser with inline
+  preview, download, and production metric bars.
+- README rewrite (arch diagram, quickstart, API table, eval + production notes).
+- ADR-006..010 (LangGraph, CrewAI-single-agent, guardrails-middleware,
+  Ragas/DeepEval-fallback, ReviewLoopBase extraction).
+- `docs/Phases.md` checkboxes reconciled with reality; `AGENTS.md` snapshot updated.
+
+### Bugs Found While Verifying (all fixed, all with tests/gate green)
+- Demo recall miss traced with a throwaway probe (deleted afterwards): top-1 chunk
+  lacked the queried fact — fixed by front-loading key facts in fixtures (also
+  documents good chunking practice), recall asserted over top-3.
+- Lexical faithfulness penalized `[Source N]` citations (0.5 on verbatim answers):
+  citation markers now stripped before scoring + regression test.
+- Demo eval now prints its mode (`lexical-fallback`) and mean metrics; exit code
+  stays on retrieval+guards. Production bars untouched (honest strictness).
+
+### Hardening Results
+- Contracts §4.1–4.5 verified unchanged against code (only internals touched).
+- Security: no hardcoded keys, `.env` ignored/absent, CORS localhost-only,
+  no debug/reload in main, `pip check` clean.
+- **Final gate: 151/151 tests, ruff check+format clean, mypy strict clean (62 files).**
+
+### Known Issues / Honest Gaps
+- Live LLM-judge eval bars need API keys (fallback is informational by design).
+- Resume update (Phase 2 task 2.5.5) is the user's.
+- Phase 4 fine-tuning deferred per ADR-004.
+
+### Files Changed
+- [NEW] `scripts/demo.py`, `src/ui/pages/eval_dashboard.py`
+- [MOD] `scripts/ingest_sample_data.py` (stub → real), `src/evaluation/ragas_eval.py`
+  (citation strip), `src/ui/app.py` (nav), `tests/unit/test_ragas_eval.py` (+1 test)
+- [MOD] `README.md`, `docs/decisions.md` (ADR-006..010), `docs/Phases.md`, `AGENTS.md`
+- [NEW] `docs/flow.md` (2026-09-22, novice data+execution flow; fulfills AGENTS.md §2 ref)
+
+---
+
+## Session: 2026-09-22 — CEO mandate: production-readiness drive (checkpoint 1)
+
+### CEO Notes (honest assessment)
+- CORRECTED earlier misread: `src/` was never empty — hash-verified working tree
+  == HEAD (`git hash-object` == `git rev-parse HEAD:`). Apologies for the false alarm.
+- Verified baseline on Python 3.14: 111 collected, 89 passed, 22 failed (all
+  chromadb→pydantic.v1 import), 5 files uncollectable (same root cause).
+
+### What I Did
+- Pinned Python 3.13 (`.python-version`, `uv python install 3.13`, rebuilt `.venv`,
+  `uv sync --extra dev`); bumped ruff `target-version` + mypy `python_version` to 3.13.
+  Result: all 150 tests collect.
+- Fixed genuine `_extract_score` scale bug (`11/10` → 0.11 instead of clamp 1.0):
+  each regex pattern now carries its own divisor (/10, %, bare heuristic).
+- Fixed all 19 mypy-strict errors (Protocols for LLM/splitter, RunnableConfig,
+  chromadb ClientAPI/Metadata via canonical imports, None-guards on query results,
+  casts at Any boundaries, rank_bm25 ignore override). No runtime behavior changed
+  except: non-text LLM responses now raise AgentError (was silent wrong-type return).
+- Cleared 11 ruff errors + formatted whole tree (`ruff format`: 19 files).
+- **Gate: 150/150 tests pass, ruff check clean, ruff format clean, mypy strict clean.**
+
+### Files Changed
+- [NEW] `.python-version` (3.13)
+- [MOD] `pyproject.toml` — ruff/mypy targets, mypy override for rank_bm25
+- [MOD] `src/agents/{crew,graph,llm_provider}.py`, `src/api/middleware.py`,
+  `src/ingestion/{chunker,embedder}.py`, `src/retrieval/{multi_query,pipeline}.py`,
+  `src/ui/{components/file_upload,pages/research_chat}.py`,
+  `src/vectorstore/chroma_store.py`
+- [MOD] tests: unused-import/import-sort cleanup + 2 long-line wraps
+- [FMT] 19 files via `ruff format` (whitespace only)
+
+### What's Next
+- Architect Review P0s: crew.py sync blocking, graph_skeleton docstring,
+  API pipeline-per-request, self_critique/review_agent dedup
+- Phase 2 Week 4 docs (README, ADRs, demo), Phase 3 eval dashboard
+
+---
+
+## Session: 2026-09-22 — CEO mandate checkpoint 2 (Architect Review P0s)
+
+### What I Did (all 5 architect-review P0s closed)
+1. **crew.py sync blocking** — `crew.kickoff()` → `await crew.kickoff_async()`
+   (verified installed crewai exposes it; no test touches the live path).
+2. **graph_skeleton.py stale docstring** — replaced false "LangGraph not in
+   pyproject" claim with honest rationale (lightweight zero-overhead alternative).
+3. **API pipeline-per-request** — module-level lazy singletons `_get_retrieval()` /
+   `_get_generator()` in `query.py` (2-3s rebuild saved per request); added
+   autouse cache-reset fixture in `test_api.py` so mocks can't leak between tests.
+4. **self_critique/review_agent ~80% duplication** — extracted
+   `src/agents/review_loop.py` (`ReviewLoopBase` + Protocol types, 335 lines);
+   subclasses are now thin vocabulary shells (411→176 and 418→181 lines).
+   Public APIs, prompts, markers, verdict models all unchanged.
+5. **Python 3.14 incompatibility** — closed in checkpoint 1 (3.13 pin).
+
+### Verification
+- **Gate: 150/150 tests pass** (both agent test files pass unchanged),
+  ruff check clean, ruff format clean, mypy strict clean (61 files).
+- Runtime import smoke: SelfCritiqueAgent, ReviewAgent, CriticAgent, api.main OK.
+
+### Files Changed
+- [NEW] `src/agents/review_loop.py`
+- [MOD] `src/agents/{self_critique,review_agent,crew,graph_skeleton}.py`
+- [MOD] `src/api/routes/query.py`, `tests/integration/test_api.py`
+
+---
+
+## Session: 2026-09-22 — Relevance judge: gate checks safety, pipeline checks relevance
+
+### What I Built (user-approved design)
+- `InputGuard._check_topic` demoted to advisory: logs, never a Violation. The gate
+  now enforces only injection + length. Topic allow-list can no longer reject a
+  paraphrased legitimate query.
+- Post-retrieval coverage floor: `DEFAULT_MIN_COVERAGE = 0.25` (constants) +
+  `settings.min_coverage`, enforced in `RetrievalPipeline.retrieve()` on top-1
+  dense cosine similarity. Below floor → empty results with truthful counts.
+  Fused RRF scores are rank-based (~0.016), so the floor deliberately reads the
+  dense leg, not the fused score.
+- No-coverage short-circuit: `AgentState.no_coverage` flag; `research()` delivers
+  templated `NO_COVERAGE_RESPONSE` with zero LLM calls; `_review_node`/`revise`
+  early-return (graph edges are unconditional); `deliver_node` skips the citation
+  guard for the templated answer. API path already 404s on empty results.
+- System instructions wired: `COVERAGE_SYSTEM_NOTE` appended to the generation
+  system message; `NO_COVERAGE_RESPONSE` template in `prompts.py`.
+
+### Verification
+- New: `test_coverage_floor.py` (5 tests: pass-through, floor trip w/ truthful
+  counts, disabled floor, empty store, default value) + 2 agent short-circuit
+  tests (research delivers honestly, run() with 0 iterations and 0 LLM calls).
+- Rewrote 4 topic tests to the allow-through contract.
+- Live E2E note: toy hash embeddings score everything ~0.7+, so the floor can't
+  trip in `demo.py` (it exits 0, happy path intact). Floor logic is proven by unit
+  tests with calibrated stub scores; live trip needs real embeddings (API keys).
+- **Gate: 158/158 tests, ruff check+format clean, mypy strict clean (62 files).**
+
+### Contracts
+- §4.1–4.5 unchanged (only internals + additive `AgentState.no_coverage`,
+  which is agents-internal, not a cross-module surface).

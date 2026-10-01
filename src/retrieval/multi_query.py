@@ -2,9 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+
+class QueryLLM(Protocol):
+    """Structural type for the query-rewriting LLM.
+
+    Implemented by any LangChain chat model (``.invoke`` is sync on
+    ``BaseChatModel``); the expander stays sync so it can run inside or
+    outside an event loop.
+    """
+
+    def invoke(self, prompt: str) -> str: ...
+
 
 _DEFAULT_PROMPT = (
     "You are a helpful research assistant. Generate {n} alternative phrasings "
@@ -17,13 +31,12 @@ _DEFAULT_PROMPT = (
 class MultiQueryExpander:
     """Generate query variations to broaden retrieval coverage."""
 
-    def __init__(self, llm: object | None = None) -> None:
+    def __init__(self, llm: QueryLLM | None = None) -> None:
         """Initialise with an optional LLM callable.
 
         Args:
-            llm: An object with a ``.invoke(prompt: str) -> str`` method
-                 (e.g. a LangChain ChatModel). When *None* the expander
-                 returns only the original query.
+            llm: A :class:`QueryLLM` (e.g. a LangChain ChatModel).
+                 When *None* the expander returns only the original query.
         """
         self._llm = llm
 

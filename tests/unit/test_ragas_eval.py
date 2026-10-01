@@ -135,6 +135,12 @@ def test_lexical_scorers_handle_edge_inputs() -> None:
     assert score_context_recall(["RRF merges ranked lists."], "RRF merges lists") == 1.0
 
 
+def test_score_faithfulness_with_citation_markers_ignores_them() -> None:
+    context = "Reciprocal rank fusion merges ranked lists from dense and sparse retrieval."
+    assert score_faithfulness(f"{context} [Source 1]", [context]) == 1.0
+    assert score_faithfulness(f"{context} [1]", [context]) == 1.0
+
+
 def test_render_report_contains_status_and_scores() -> None:
     async def _run() -> None:
         results = await RagasEvaluator(use_ragas=False).evaluate_batch([_grounded_sample()])

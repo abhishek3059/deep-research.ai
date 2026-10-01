@@ -1,7 +1,7 @@
 ---
 description: Builds src/guardrails/ and src/evaluation/ quality assurance layer
 mode: subagent
-model: opencode/muse-spark-1.3-contributor-free
+# model: removed 2026-09-21 — Zen free models (opencode/*-free) blocked as subagents; inherit primary model (see ADR-Zen)
 temperature: 0.1
 permission:
   edit: allow

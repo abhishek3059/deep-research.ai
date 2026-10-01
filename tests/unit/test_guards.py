@@ -59,7 +59,7 @@ async def test_input_guard_with_role_reassignment_rejects() -> None:
     assert result.action_taken == "reject"
 
 
-# ─── InputGuard: topic ─────────────────────────────────────────────────
+# ─── InputGuard: topic (advisory only — never blocks) ────────────────────
 
 
 async def test_input_guard_with_research_query_passes_topic() -> None:
@@ -67,12 +67,13 @@ async def test_input_guard_with_research_query_passes_topic() -> None:
     assert result.passed is True
 
 
-async def test_input_guard_with_weather_query_fails_topic() -> None:
+async def test_input_guard_with_weather_query_passes_topic_advisory() -> None:
+    # Off-topic-looking queries are logged, not rejected: relevance is decided
+    # post-retrieval by the coverage floor, never by keyword matching.
     result = await InputGuard().validate("What's the weather today?")
-    assert result.passed is False
-    assert result.validated_output is None
-    assert result.action_taken == "reask"
-    assert any("off-topic" in v.description for v in result.violations)
+    assert result.passed is True
+    assert result.action_taken == "pass"
+    assert result.violations == []
 
 
 async def test_input_guard_with_topic_keywords_passes_on_match() -> None:
@@ -81,11 +82,13 @@ async def test_input_guard_with_topic_keywords_passes_on_match() -> None:
     assert result.passed is True
 
 
-async def test_input_guard_with_topic_keywords_fails_without_match() -> None:
+async def test_input_guard_with_topic_keywords_passes_without_match() -> None:
+    # Keyword misses are advisory: a paraphrased in-scope question must never
+    # be rejected for vocabulary mismatch.
     guard = InputGuard(topic_keywords=["retrieval", "chromadb"])
     result = await guard.validate("Explain photosynthesis in plants.")
-    assert result.passed is False
-    assert result.action_taken == "reask"
+    assert result.passed is True
+    assert result.action_taken == "pass"
 
 
 # ─── InputGuard: length ────────────────────────────────────────────────

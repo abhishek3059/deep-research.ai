@@ -10,6 +10,7 @@ from typing import Any
 
 import structlog
 
+from src.agents.exceptions import AgentError
 from src.config.settings import settings
 
 logger = structlog.get_logger(__name__)
@@ -67,9 +68,9 @@ class LLMProvider:
         Returns:
             The assistant message content string.
         """
-        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+        from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-        lc_messages = []
+        lc_messages: list[BaseMessage] = []
         for msg in messages:
             role = msg["role"]
             if role == "system":
@@ -86,7 +87,11 @@ class LLMProvider:
             n_messages=len(lc_messages),
         )
         response = await self._llm.ainvoke(lc_messages)
-        return response.content
+        content = response.content
+        if not isinstance(content, str):
+            # Multimodal (image/audio block) responses are unsupported here.
+            raise AgentError(f"LLM returned non-text content: {type(content).__name__}")
+        return content
 
     # -- private --------------------------------------------------------------
 

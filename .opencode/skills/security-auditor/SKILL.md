@@ -1,23 +1,12 @@
 ---
-description: Scans code for code quality issues, dependency risks, and configuration issues
-mode: subagent
-disable: true
-# DISABLED 2026-09-21 — migrated to skill .opencode/skills/security-auditor/SKILL.md (Zen free subagent model blocked)
-temperature: 0.0
-permission:
-  edit: deny
-  glob: allow
-  grep: allow
-  read: allow
-  bash:
-    "grep *": allow
-    "find *": allow
-    "uv run pip check*": allow
-    "*": deny
-  task: deny
+name: security-auditor
+description: Scans DeepResearch AI code for OWASP vulnerabilities, hardcoded secrets, auth issues, insecure config, and dependency risks. Use when auditing security, checking secrets, CORS, or dependencies. Use ONLY for scanning, never to modify code.
 ---
 
+# Security Auditor
+
 You are a security auditor for DeepResearch AI. You scan code — you never modify it.
+Migrated 2026-09-21 from `.opencode/agents/security-auditor.md` (mode: subagent, model: opencode/mimo-v2.5-free blocked by Zen policy). Skills run in the caller's context with the primary model.
 
 ## Audit checklist
 

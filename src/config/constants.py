@@ -47,3 +47,15 @@ COLLECTION_NAME = "research_documents"
 # pipeline answers honestly instead of generating. Conservative by design:
 # unrelated content scores near 0.0–0.2, related content well above 0.4.
 DEFAULT_MIN_COVERAGE = 0.25
+
+# ---------------------------------------------------------------------------
+# Provider endpoints
+# ---------------------------------------------------------------------------
+# Google exposes an OpenAI-compatible chat endpoint, so the LLM provider reaches
+# Gemini through ChatOpenAI with a different base_url. That keeps the chat side a
+# configuration change rather than a new code path (see ADR-012).
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+# Default Gemini embedding model. Google's OpenAI-compatible surface does NOT
+# cover embeddings, so these go through the native SDK instead.
+DEFAULT_GEMINI_EMBEDDING_MODEL = "models/text-embedding-004"

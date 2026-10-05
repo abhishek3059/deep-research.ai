@@ -20,7 +20,7 @@ _CHAT_MODEL: dict[str, Any] | None = None
 
 
 def _get_chat_model() -> dict[str, Any]:
-    """Return a mapping of provider name -> chat model class (lazy)."""
+    """Return a mapping from provider name -> chat model class (lazy)."""
     global _CHAT_MODEL  # noqa: PLW0603
     if _CHAT_MODEL is None:
         from langchain_anthropic import ChatAnthropic
@@ -29,6 +29,11 @@ def _get_chat_model() -> dict[str, Any]:
         _CHAT_MODEL = {
             "openai": ChatOpenAI,
             "anthropic": ChatAnthropic,
+            # Google exposes an OpenAI-compatible chat endpoint, so Gemini is
+            # reached by pointing the same class at a different base_url rather
+            # than adding a client. Contrast with embeddings, which have no such
+            # compatibility surface and need their own class (ADR-012).
+            "gemini": ChatOpenAI,
         }
     return _CHAT_MODEL
 
@@ -97,7 +102,12 @@ class LLMProvider:
 
     @staticmethod
     def _infer_provider(model: str) -> str:
-        """Heuristic: gpt-* → openai, everything else → anthropic."""
+        """Infer the provider from a model name.
+
+        ``gemini-*`` -> Gemini, ``gpt-*``/``o1*`` -> OpenAI, else Anthropic.
+        """
+        if model.startswith("gemini"):
+            return "gemini"
         if model.startswith("gpt") or model.startswith("o1"):
             return "openai"
         return "anthropic"
@@ -109,6 +119,11 @@ class LLMProvider:
         kwargs: dict[str, Any] = {"model": self._model, "temperature": 0.3}
         if self._provider == "openai":
             kwargs["api_key"] = settings.openai_api_key or None
+        elif self._provider == "gemini":
+            # Same client class as OpenAI; only the endpoint differs. This is why
+            # adding a chat provider is a settings change, not a code change.
+            kwargs["api_key"] = settings.gemini_api_key or None
+            kwargs["base_url"] = settings.gemini_openai_base_url
         elif self._provider == "anthropic":
             kwargs["api_key"] = settings.anthropic_api_key or None
         return cls(**kwargs)

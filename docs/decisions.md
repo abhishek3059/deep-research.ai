@@ -258,3 +258,59 @@ validation (toy hash embeddings score everything ~0.7+, so the floor cannot
 trip in the key-free demo).
 **Evidence:** 7 new tests (5 floor + 2 short-circuit), full gate green —
 158/158 tests, ruff clean, mypy strict clean.
+
+## ADR-012: Pluggable Embedding Providers Behind a Protocol
+
+**Date:** 2026-10-20
+**Status:** Accepted
+**Context:** Architecture invariant #2 claims "switching providers must require
+only a config change." That held for chat (`LLMProvider` uses a provider
+registry) but **not** for embeddings: `RetrievalPipeline` type-hinted the
+concrete `Embedder`, so a second provider would have required editing every
+caller. Adding Gemini surfaced the gap.
+
+**Findings from the implementation:**
+
+1. **Chat is genuinely config-only.** Google exposes an **OpenAI-compatible
+   chat endpoint** (`GEMINI_OPENAI_BASE_URL`), so Gemini is reached by pointing
+   the same `ChatOpenAI` class at a different `base_url`. No new code path.
+2. **Embeddings are not.** That compatibility surface does not cover
+   embeddings, so they require the native `langchain-google-genai` client and
+   therefore a new class. The asymmetry is the finding.
+3. **A structural `Protocol` needs no changes to existing code.**
+   `EmbedderProtocol` is declared in `src/ingestion/embedder_base.py`, mirroring
+   `vectorstore/base.py`. `Embedder` already satisfied it — verified by
+   `isinstance(Embedder(), EmbedderProtocol) is True` **with zero edits**.
+   `issubclass()` is unavailable on protocols with non-method members
+   (`model_name` is a property), so structural conformance must be checked with
+   `isinstance`.
+
+**Decision:**
+
+- `EmbedderProtocol` + `build_embedder()` factory in
+  `src/ingestion/embedder_base.py` — the single point of provider selection,
+  driven by `EMBEDDING_PROVIDER`.
+- `GeminiEmbedder` (`src/ingestion/gemini_embedder.py`) as a near-mirror of
+  `Embedder`: same batching, same `EmbeddingError` translation, same surface.
+- Both ingestion and retrieval pipelines accept `EmbedderProtocol | None`.
+- `_infer_provider` recognises `gemini*`; `_build_llm` maps it to `ChatOpenAI`
+  with `base_url` override.
+
+**Also fixed — a hermeticity defect this work exposed.** `CriticAgent()`
+constructs a CrewAI `Agent`, which eagerly builds an LLM from `os.environ`.
+Creating a local `.env` therefore failed **22 crew tests** with "Missing
+credentials", despite those tests exercising only pure parsing logic. The suite
+was never hermetic and would have broken in CI. Fixed with an autouse
+session-scoped fixture in `tests/conftest.py` that neutralises provider env
+vars with dummy values (construction checks presence, not validity; no test
+performs a network call).
+
+**Consequences:** Invariant #2 is now real rather than aspirational, and the
+chat/embeddings asymmetry is documented rather than latent. `GeminiEmbedder`
+raises at construction when no key is set, so misconfiguration fails loudly
+instead of at the first query. `langchain-google-genai` added with no
+conflicts (6 transitive packages, no downgrades).
+
+**Evidence:** 18 new tests (stubbed clients, no network, no key), including
+explicit protocol-conformance and factory-selection coverage. Gate green:
+**176/176 tests**, ruff check + format clean, mypy strict clean (64 files).

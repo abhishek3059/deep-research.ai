@@ -48,6 +48,7 @@ docs/interview/
 temp/
 
 # Testing
+.deepeval/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

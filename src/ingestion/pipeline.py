@@ -24,7 +24,7 @@ from src.config.constants import SourceType
 from src.ingestion import IngestionError
 from src.ingestion.chunker import TextChunker
 from src.ingestion.deduplicator import Deduplicator
-from src.ingestion.embedder import Embedder
+from src.ingestion.embedder_base import EmbedderProtocol, build_embedder
 from src.ingestion.loaders import DocumentLoader, detect_source_type
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class IngestionPipeline:
         self,
         loader: DocumentLoader | None = None,
         chunker: TextChunker | None = None,
-        embedder: Embedder | None = None,
+        embedder: EmbedderProtocol | None = None,
         deduplicator: Deduplicator | None = None,
     ) -> None:
         """Wire the pipeline stages, defaulting each to a real implementation.
@@ -99,7 +99,7 @@ class IngestionPipeline:
         """
         self._loader = loader or DocumentLoader()
         self._chunker = chunker or TextChunker()
-        self._embedder = embedder or Embedder()
+        self._embedder = embedder or build_embedder()
         self._deduplicator = deduplicator or Deduplicator()
 
     async def ingest(

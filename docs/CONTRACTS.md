@@ -78,6 +78,15 @@ class RetrievalMeta:
 > empty results as "corpus does not cover the query" — answer honestly, never
 > generate. Field shape above is unchanged.
 
+> **Embedding provider (ADR-012):** the retrieval and ingestion pipelines accept
+> an `EmbedderProtocol` (`src/ingestion/embedder_base.py`), not a concrete
+> class. `build_embedder()` is the only place provider selection happens, driven
+> by `EMBEDDING_PROVIDER` (`openai` | `gemini`). Implementations must supply
+> `model_name`, `embed_documents`, `embed_texts`, `embed_query`; the protocol is
+> **structural**, so no inheritance is required. Note the asymmetry: chat
+> providers are config-only (Google exposes an OpenAI-compatible endpoint),
+> whereas embeddings require a class per provider.
+
 ---
 
 ## 4.4 Agents -> Guardrails

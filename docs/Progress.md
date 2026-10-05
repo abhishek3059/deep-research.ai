@@ -769,3 +769,53 @@ All 8 invariants from AGENTS.md §7 are being met:
 ### Contracts
 - §4.1–4.5 unchanged (only internals + additive `AgentState.no_coverage`,
   which is agents-internal, not a cross-module surface).
+
+---
+
+## Session: 2026-10-20 - ADR-012: pluggable embedding providers + test hermeticity fix
+
+### What I Built
+- `src/ingestion/embedder_base.py` - `EmbedderProtocol` (structural, mirrors
+  `vectorstore/base.py`) + `build_embedder()` factory as the single selection point.
+- `src/ingestion/gemini_embedder.py` - second protocol implementation, a near-mirror
+  of `Embedder` (same batching, same `EmbeddingError` translation).
+- `src/retrieval/pipeline.py` + `src/ingestion/pipeline.py` - accept
+  `EmbedderProtocol | None`; previously typed to the concrete `Embedder`, which is
+  why invariant #2 (config-only provider swap) was aspirational for embeddings.
+- `src/agents/llm_provider.py` - Gemini reaches chat via `ChatOpenAI` with a
+  `base_url` override. Confirms chat IS config-only; embeddings are not, because
+  Google's OpenAI-compatible surface omits them.
+- `settings`/`constants` - `gemini_api_key`, `embedding_provider`,
+  `gemini_embedding_model`, `gemini_openai_base_url`.
+
+### The real finding
+`Embedder` already satisfied `EmbedderProtocol` with **zero edits** - verified by
+`isinstance()`. That is the proof the abstraction is real. (`issubclass()` is
+unavailable on protocols with non-method members, so conformance must be checked
+with `isinstance`.)
+
+### Defect found and fixed (hermeticity)
+Adding a local `.env` broke **22 crew tests**. Root cause: `CriticAgent()` builds a
+CrewAI `Agent`, which eagerly constructs an LLM from `os.environ`. The suite was
+never hermetic - it passed or failed based on the developer's `.env`, and would
+have failed in CI. Fixed with an autouse session fixture in `tests/conftest.py`
+neutralising provider env vars. **This is the kind of bug only real work surfaces.**
+
+### Verification
+- **Gate: 176/176 tests, ruff check + format clean, mypy strict clean (64 files).**
+- 18 new tests, all with stubbed clients - no network, no API key required.
+
+### Known issues
+- `GeminiEmbedder` raises at construction when no key is set (deliberate: fail
+  loudly rather than at first query).
+- Live end-to-end run against Gemini pending an API key; not yet exercised.
+- CrewAI needs its own provider-prefixed model string for Gemini (LiteLLM format,
+  e.g. `gemini/gemini-2.0-flash`), not verified.
+
+### Files Changed
+- [NEW] `src/ingestion/embedder_base.py`, `src/ingestion/gemini_embedder.py`
+- [NEW] `tests/unit/test_gemini_embedder.py`, `tests/conftest.py`
+- [MOD] `src/retrieval/pipeline.py`, `src/ingestion/pipeline.py`,
+       `src/agents/llm_provider.py`, `src/config/{settings,constants}.py`
+- [MOD] `docs/decisions.md` (ADR-012), `docs/CONTRACTS.md` (S4.1 note)
+- [MOD] `pyproject.toml`, `uv.lock` - `langchain-google-genai==4.4.0`

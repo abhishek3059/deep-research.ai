@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from src.config.constants import DEFAULT_MIN_COVERAGE, DEFAULT_TOP_K
-from src.ingestion.embedder import Embedder
+from src.ingestion.embedder_base import EmbedderProtocol, build_embedder
 from src.ingestion.pipeline import ChunkMetadata
 from src.retrieval.dense import DenseRetriever
 from src.retrieval.hybrid import HybridRetriever
@@ -64,7 +64,7 @@ class RetrievalPipeline:
     def __init__(
         self,
         vector_store: VectorStoreProtocol,
-        embedder: Embedder | None = None,
+        embedder: EmbedderProtocol | None = None,
         documents: list[str] | None = None,
         metadatas: list[ChunkMetadata] | None = None,
         enable_sparse: bool = True,
@@ -77,7 +77,7 @@ class RetrievalPipeline:
 
         Args:
             vector_store: Backend implementing VectorStoreProtocol.
-            embedder: Embedder used to encode the query before dense retrieval.
+            embedder: EmbedderProtocol used to encode the query before dense retrieval.
             documents: Raw texts for BM25 index (required when *enable_sparse*).
             metadatas: ChunkMetadata list for sparse results.
             enable_sparse: Whether to run BM25 alongside dense retrieval.
@@ -92,7 +92,7 @@ class RetrievalPipeline:
                 real corpus — never by pre-retrieval keyword matching.
         """
         self._vector_store = vector_store
-        self._embedder = embedder or Embedder()
+        self._embedder = embedder or build_embedder()
         self._enable_sparse = enable_sparse
         self._enable_rerank = enable_rerank
         self._enable_multi_query = enable_multi_query

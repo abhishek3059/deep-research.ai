@@ -41,6 +41,12 @@ data/chroma_db/
 .DS_Store
 Thumbs.db
 
+# Personal prep material (local only, never pushed)
+docs/interview/
+
+# Scratch
+temp/
+
 # Testing
 .pytest_cache/
 .mypy_cache/

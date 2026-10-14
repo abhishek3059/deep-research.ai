@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import httpx
 import streamlit as st
 
 from src.ui.components.file_upload import upload_documents
+from src.ui.config import API_BASE, HEALTH_TIMEOUT_SECONDS
 
-API_BASE = "http://localhost:8000"
 
-
-def _fetch_documents() -> list[dict[str, str]]:
-    """Fetch ingested documents from the API."""
+def _fetch_health() -> dict[str, Any] | None:
+    """Return the API health payload, or None when unreachable."""
     try:
-        response = httpx.get(f"{API_BASE}/api/v1/health", timeout=10.0)
+        response = httpx.get(f"{API_BASE}/api/v1/health", timeout=HEALTH_TIMEOUT_SECONDS)
         if response.status_code == 200:
-            return [{"name": "Knowledge base is active", "status": "ok"}]
-    except httpx.ConnectError:
-        return [{"name": "API server not reachable", "status": "error"}]
-    return []
+            return cast("dict[str, Any]", response.json())
+    except httpx.HTTPError:
+        return None
+    return None
 
 
 def render() -> None:
@@ -40,23 +41,28 @@ def render() -> None:
 
     st.divider()
 
-    st.subheader("Ingested Documents")
-
-    health = _fetch_documents()
-    if health and health[0].get("status") == "error":
-        st.error(health[0]["name"])
-        st.info("Start the API server first: `uv run python -m src.api.main`")
-        return
-
-    st.success("API server is running")
+    st.subheader("Vector Store")
 
     if st.button("Refresh", type="secondary"):
         st.rerun()
 
-    st.info(
-        "Document listing will be available once the vector store "
-        "implements a list/collection info endpoint."
-    )
+    health = _fetch_health()
+    if health is None:
+        st.error(f"API server not reachable at {API_BASE}")
+        st.info("Start it with `make api`, or rebuild the container.")
+        return
+
+    chunks = health.get("chunks")
+    backend = health.get("vector_store", "unknown")
+
+    if isinstance(chunks, int) and chunks > 0:
+        st.metric("Chunks indexed", chunks)
+        st.caption(f"Backend: {backend} · embeddings persist across restarts")
+    elif isinstance(chunks, int):
+        st.warning("The vector store is empty — no documents have been ingested yet.")
+        st.info("Upload a document above, or run `make demo` to load sample data.")
+    else:
+        st.info("Backend health OK. Chunk count is not reported by this store.")
 
 
 if __name__ == "__main__":

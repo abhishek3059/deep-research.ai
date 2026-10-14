@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import httpx
 import streamlit as st
 
+from src.ui.config import API_BASE, INGEST_TIMEOUT_SECONDS
+
 if TYPE_CHECKING:
     from streamlit.runtime.uploaded_file_manager import UploadedFile
-
-API_BASE = "http://localhost:8000"
 
 ALLOWED_EXTENSIONS = {"pdf", "md", "csv", "txt"}
 
@@ -46,7 +46,7 @@ def upload_documents(uploaded_files: list[UploadedFile]) -> None:
                 response = httpx.post(
                     f"{API_BASE}/api/v1/ingest",
                     files=files,
-                    timeout=120.0,
+                    timeout=INGEST_TIMEOUT_SECONDS,
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -56,7 +56,7 @@ def upload_documents(uploaded_files: list[UploadedFile]) -> None:
                     st.error(f"Failed to ingest `{filename}`: HTTP {response.status_code}")
                     error_count += 1
             except httpx.ConnectError:
-                st.error("Cannot connect to API server. Is it running on port 8000?")
+                st.error(f"Cannot connect to API server at {API_BASE}. Is it running?")
                 error_count += 1
                 break
             except Exception as e:

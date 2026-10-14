@@ -8,8 +8,7 @@ import httpx
 import streamlit as st
 
 from src.ui.components.chat import display_message, display_sources
-
-API_BASE = "http://localhost:8000"
+from src.ui.config import API_BASE, QUERY_TIMEOUT_SECONDS
 
 
 def _send_query(query: str) -> dict[str, Any] | None:
@@ -18,7 +17,7 @@ def _send_query(query: str) -> dict[str, Any] | None:
         response = httpx.post(
             f"{API_BASE}/api/v1/query",
             json={"query": query},
-            timeout=120.0,
+            timeout=QUERY_TIMEOUT_SECONDS,
         )
         if response.status_code == 200:
             return cast("dict[str, Any] | None", response.json())
@@ -29,11 +28,22 @@ def _send_query(query: str) -> dict[str, Any] | None:
             detail = response.json().get("detail", "Query rejected.")
             st.warning(f"Query rejected by safety guard: {detail}")
             return None
+        elif response.status_code == 503:
+            st.warning(
+                "The model provider is rate-limiting requests. Please try again in a few minutes."
+            )
+            return None
         else:
             st.error(f"API error: HTTP {response.status_code}")
             return None
     except httpx.ConnectError:
-        st.error("Cannot connect to API server. Is it running on port 8000?")
+        st.error(f"Cannot connect to API server at {API_BASE}. Is it running?")
+        return None
+    except httpx.ReadTimeout:
+        st.error(
+            "The research pipeline timed out waiting for the model. "
+            "Provider latency varies — please try again."
+        )
         return None
     except Exception as e:
         st.error(f"Request failed: {e}")

@@ -6,10 +6,20 @@ Run with:
 
 from __future__ import annotations
 
-import streamlit as st
+import sys
+from pathlib import Path
 
-from src.ui.components.file_upload import upload_documents
-from src.ui.pages import eval_dashboard, knowledge_base, research_chat
+# Streamlit puts only this script's directory on sys.path, not the project
+# root, so `import src` fails under `streamlit run` (uvicorn works because it
+# resolves via cwd). Bootstrap the root before any project import.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import streamlit as st  # noqa: E402
+
+from src.ui.components.file_upload import upload_documents  # noqa: E402
+from src.ui.pages import eval_dashboard, knowledge_base, research_chat  # noqa: E402
 
 st.set_page_config(
     page_title="DeepResearch AI",
@@ -37,13 +47,13 @@ with st.sidebar:
 
     page = st.radio(
         "Navigate",
-        ["?? Research Chat", "?? Knowledge Base", "Eval Dashboard"],
+        ["💬 Research Chat", "📚 Knowledge Base", "📊 Eval Dashboard"],
         label_visibility="collapsed",
     )
 
-if page == "?? Research Chat":
+if page == "💬 Research Chat":
     research_chat.render()
-elif page == "?? Knowledge Base":
+elif page == "📚 Knowledge Base":
     knowledge_base.render()
-elif page == "Eval Dashboard":
+elif page == "📊 Eval Dashboard":
     eval_dashboard.render()

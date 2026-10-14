@@ -7,7 +7,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-REPORT_DIR = Path("data/eval_reports")
+from src.ui.config import EVAL_REPORT_DIR
 
 METRIC_TARGETS = {
     "faithfulness": 0.85,
@@ -19,10 +19,12 @@ METRIC_TARGETS = {
 
 def _list_reports() -> list[Path]:
     """Return eval reports newest-first; empty when none exist yet."""
-    if not REPORT_DIR.is_dir():
+    if not EVAL_REPORT_DIR.is_dir():
         return []
     return sorted(
-        REPORT_DIR.glob("eval_report-*.html"), key=lambda p: p.stat().st_mtime, reverse=True
+        EVAL_REPORT_DIR.glob("eval_report-*.html"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
     )
 
 

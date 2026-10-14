@@ -36,6 +36,7 @@ ENV/
 
 # Data (local dev only)
 data/chroma_db/
+data/sample_docs/
 
 # OS
 .DS_Store

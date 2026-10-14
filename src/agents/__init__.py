@@ -12,6 +12,7 @@ from src.agents.graph_skeleton import (
 )
 from src.agents.llm_provider import LLMProvider
 from src.agents.memory import ConversationMemory
+from src.agents.pipeline import AgentPipeline, build_agent_pipeline
 from src.agents.review_agent import (
     REVIEW_MARKER,
     REVIEW_PROMPT,
@@ -53,6 +54,7 @@ __all__ = [
     "AgentError",
     "AgentGraphError",
     "AgentLoopGuardError",
+    "AgentPipeline",
     "AgentState",
     "ConversationMemory",
     "CriticAgent",
@@ -68,6 +70,7 @@ __all__ = [
     "SelfCritiqueAgent",
     "SelfCritiqueGraph",
     "SelfCritiqueResult",
+    "build_agent_pipeline",
     "build_graph",
     "build_review_graph",
 ]

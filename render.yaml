@@ -1,0 +1,30 @@
+# Render Blueprint — DeepResearch AI (free tier, $0).
+# Deploy: push to Git, then "New Blueprint" in Render and point at this file.
+# Set GEMINI_API_KEY in the Render dashboard (sync: false keeps it secret).
+services:
+  - type: web
+    name: deepresearch-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/health
+    disk:
+      name: chroma-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: gemini
+      - key: GEMINI_EMBEDDING_MODEL
+        value: models/text-embedding-004
+      - key: LLM_MODEL
+        value: gemini-2.0-flash
+      - key: VECTOR_STORE_TYPE
+        value: chroma
+      - key: CHROMA_PERSIST_DIR
+        value: /app/data/chroma_db
+      - key: TOP_K
+        value: 5
+      - key: MIN_COVERAGE
+        value: 0.25

@@ -311,6 +311,33 @@ raises at construction when no key is set, so misconfiguration fails loudly
 instead of at the first query. `langchain-google-genai` added with no
 conflicts (6 transitive packages, no downgrades).
 
-**Evidence:** 18 new tests (stubbed clients, no network, no key), including
-explicit protocol-conformance and factory-selection coverage. Gate green:
-**176/176 tests**, ruff check + format clean, mypy strict clean (64 files).
+**Live verification (same session, real API key).** Ran the real ingestion and
+retrieval pipelines end-to-end against Gemini. Findings that only the live run
+could produce:
+
+1. **The default embedding model was wrong.** `models/text-embedding-004`
+   returns `404 NOT_FOUND` - it is no longer served on the `v1beta` API.
+   Queried `ListModels` (63 models returned, confirming the key was valid) and
+   switched the default to **`models/gemini-embedding-001`**, which is live.
+   A stale default in a config constant is invisible to unit tests that stub the
+   client; only the network run exposes it.
+2. **Chat default was equally stale.** `gemini-2.0-flash` is not in the model
+   list; the live line is `gemini-2.5-flash` (also `gemini-2.5-pro`).
+3. **Vector dimension differs by provider: 3072 (Gemini) vs 1536
+   (`text-embedding-3-small`).** Swapping providers is *config* for the code,
+   but **not** for the stored data - dimensions are not interchangeable within a
+   collection. The production ChromaDB store is currently empty (0 vectors), so
+   there is no migration to perform today; this is recorded because it is the
+   one non-config cost of the swap and will bite on any *populated* store.
+   `gemini-embedding-001` does support `output_dimensionality`, so a 1536-dim
+   request is available if the store must stay interoperable.
+4. **End-to-end result was correct, not merely successful.** Ingested a real
+   markdown doc, upserted, and retrieved: `what is rrf fusion k=60` ranked the
+   RRF paragraph first; `why use a cross-encoder reranker` ranked the
+   cross-encoder paragraph first. Cross-encoder reranking active; 620-744 ms.
+
+**Evidence:** 18 unit tests (stubbed clients, no network, no key), including
+explicit protocol-conformance and factory-selection coverage. Plus a live
+end-to-end run against Gemini with a real key (temp ChromaDB client, production
+store untouched). Gate green: **178/178 tests**, ruff check + format clean,
+mypy strict clean (65 files).

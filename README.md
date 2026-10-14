@@ -61,17 +61,31 @@ uv run python scripts/run_evals.py     # golden-dataset eval + HTML report
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/health` | GET | Liveness + version |
+| `/api/v1/health` | GET | Liveness + vector store readiness (`chunks` count; 503 when down) |
 | `/api/v1/ingest` | POST | Ingest a document (`multipart/form-data`) |
-| `/api/v1/query` | POST | `{"query": "..."}` → `{answer, sources[]}` (404 when nothing relevant) |
+| `/api/v1/query` | POST | `{"query": "..."}` → `{answer, sources[], iterations, revised, critique_passed, critique_summary}` (404 when nothing relevant, 422 on guard rejection) |
+
+## Deploy (free — Render)
+
+```bash
+cp .env.example .env   # add GEMINI_API_KEY, EMBEDDING_PROVIDER=gemini, LLM_MODEL=gemini-2.0-flash
+make deploy            # local: docker build + run (API :8000, UI :8501)
+```
+
+On Render: push to Git → "New Blueprint" → point at `render.yaml` → set
+`GEMINI_API_KEY` in the dashboard. The blueprint provisions a free web
+service (Docker) with a 1 GB persistent disk for ChromaDB and a
+`healthCheckPath` on `/api/v1/health`.
 
 ## Configuration
 
 All settings come from environment (`.env`) via Pydantic Settings
 (`src/config/settings.py`): `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
-`PINECONE_API_KEY` (optional), `EMBEDDING_MODEL`, `LLM_MODEL`, `CHUNK_SIZE`
+`GEMINI_API_KEY`, `EMBEDDING_PROVIDER` (`openai` | `gemini`),
+`GEMINI_EMBEDDING_MODEL`, `LLM_MODEL` (`gpt-4o-mini` or `gemini-2.0-flash`),
+`PINECONE_API_KEY` (optional), `EMBEDDING_MODEL`, `CHUNK_SIZE`
 (512), `CHUNK_OVERLAP` (64), `CHROMA_PERSIST_DIR` (`./data/chroma_db`),
-`TOP_K` (5). No secrets in code — ever.
+`TOP_K` (5), `MIN_COVERAGE` (0.25). No secrets in code — ever.
 
 ## Evaluation
 

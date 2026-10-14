@@ -23,7 +23,7 @@ def _client() -> MagicMock:
     instance = MagicMock()
     instance.aembed_query = AsyncMock(return_value=[0.1, 0.2, 0.3])
     instance.aembed_documents = AsyncMock(return_value=[[0.1, 0.2], [0.3, 0.4]])
-    instance.model = "models/text-embedding-004"
+    instance.model = "models/gemini-embedding-001"
     return instance
 
 
@@ -98,7 +98,7 @@ class TestGeminiEmbedder:
             await embedder.embed_texts(["a"])
 
     def test_model_name_reads_from_client(self) -> None:
-        assert GeminiEmbedder(embeddings=_client()).model_name == "models/text-embedding-004"
+        assert GeminiEmbedder(embeddings=_client()).model_name == "models/gemini-embedding-001"
 
     def test_non_positive_batch_size_is_rejected(self) -> None:
         with pytest.raises(EmbeddingError, match="positive integer"):

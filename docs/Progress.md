@@ -819,3 +819,121 @@ neutralising provider env vars. **This is the kind of bug only real work surface
        `src/agents/llm_provider.py`, `src/config/{settings,constants}.py`
 - [MOD] `docs/decisions.md` (ADR-012), `docs/CONTRACTS.md` (S4.1 note)
 - [MOD] `pyproject.toml`, `uv.lock` - `langchain-google-genai==4.4.0`
+
+---
+
+## Session: 2026-10-11 — Deployment drive (full agent pipeline in API + free Render deploy)
+
+### What I Built
+- `src/agents/pipeline.py` (NEW) — `AgentPipeline` composition root + `build_agent_pipeline()`
+  factory. Wires `RetrievalPipeline` (dense-only; loop re-retrieves on gaps) +
+  `GenerationPipeline` + `SelfCritiqueAgent` + LangGraph `SelfCritiqueGraph`
+  (guards live in graph intake/deliver nodes, invariant #5 holds). Provider
+  selection is config-only via `build_embedder()` / `LLMProvider` (ADR-012).
+- `src/api/routes/query.py` — `/query` now runs the FULL loop (intake guard →
+  retrieve → generate → critique → revise → deliver guard) via a process-wide
+  `_get_agent()` singleton. Response gains `iterations`, `revised`,
+  `critique_passed`, `critique_summary`. 404 on coverage-floor trip, 422 on
+  guard rejection, 400 on blank, 500 on agent failure.
+- `src/api/routes/health.py` — readiness probe: returns `chunks` count, 503
+  when the store is unreachable (Render `healthCheckPath`).
+- `src/api/middleware.py` — structured error handlers: `IngestionError`→400
+  (`EmbeddingError`→502), `VectorStoreError`→500
+  (`VectorStoreConnectionError`→503), `AgentError`→500.
+- `src/ui/pages/research_chat.py` — renders the agent trace (iterations,
+  revised flag, critique verdict + summary) in an expander; handles 422.
+- `.env.example` — added `GEMINI_API_KEY`, `EMBEDDING_PROVIDER`,
+  `GEMINI_EMBEDDING_MODEL`, `GEMINI_OPENAI_BASE_URL`, `MIN_COVERAGE`,
+  `CORS_ORIGINS`.
+- `Dockerfile` (NEW) — python:3.13-slim, uv sync, single container serving
+  API :8000 + UI :8501. `render.yaml` (NEW) — free-tier Blueprint with 1 GB
+  persistent disk + health check. `.dockerignore`, `Makefile` (NEW).
+- `tests/integration/test_api.py` — agent-path tests: trace fields asserted,
+  404 on `no_coverage`, 422 on `AgentGraphError`; health test mocks the store
+  (stays hermetic).
+- `README.md` — deploy section (Render Blueprint + `make deploy`), updated API
+  table and config list.
+
+### Decisions Made
+- LangGraph `SelfCritiqueGraph` (not raw `SelfCritiqueAgent.run`) drives the
+  endpoint — intake/deliver guards come free and the deploy story includes
+  LangGraph, not just the loop logic.
+- `count()` probed structurally via `getattr` in health — did NOT widen the
+  §4.2 `VectorStoreProtocol` (contracts §4.1–4.5 unchanged).
+- Single container (API + UI) = one free Render service instead of two.
+
+### What Went Wrong
+- `data/chroma_db/chroma.sqlite3` was CORRUPTED (Rust panic on open: `range
+  start index 10 out of range`) — likely from earlier `Stop-Process -Force`
+  kills mid-write. The new health endpoint proved its worth immediately by
+  returning 503 instead of hanging. Fixed per emergency procedure: wiped
+  `data/chroma_db/` (git-ignored, no user data), store recreated clean.
+- Killing the `uv` parent leaves the child `uvicorn` alive holding the port —
+  must kill by port (`Get-NetTCPConnection`) not by parent PID.
+- Docker build is slow (torch/sentence-transformers layers); validated via
+  background job + log polling. Fixed a build break: `AGENTS.md` is not in
+  the repo, so the Dockerfile `COPY` line dropped it.
+- Live `/query` without keys returns 500 from raw `OpenAIError` (missing
+  credentials) — expected; deploy env sets `GEMINI_API_KEY` +
+  `EMBEDDING_PROVIDER=gemini` + `LLM_MODEL=gemini-2.0-flash`.
+
+### Known Issues
+- Live Gemini end-to-end (ingest + query with real key) still needs the user's
+  key — not exercised from here.
+- `except Exception` in the health probe won't catch a Rust-level
+  `PanicException` (BaseException); either way Render sees non-200.
+- Render free tier sleeps after 15 min idle — first query post-sleep is slow;
+  consider a free UptimeRobot ping.
+
+### Verification
+- `uv run pytest -q` — **178/178 pass** (was 176; +404/+422 tests).
+- `uv run ruff check src/ tests/` + `format --check` — clean (87 files).
+- `uv run mypy src/` — strict clean (65 files).
+- `uv run python scripts/demo.py` — exit 0, 3/3 queries PASS guards.
+- Live `GET /api/v1/health` → 200 `{status ok, chunks 0}`; live `POST /query`
+  blank → 400; real query without keys → 500 missing-credentials (expected).
+- Docker: daemon parsed the Dockerfile and ran through dependency download,
+  then the Docker Desktop Linux VM crashed (`Bus error`, OOM on the torch
+  layer) and the daemon stayed broken (500s). All `COPY` sources verified
+  present; `uv sync --frozen` (prod-only) confirmed working locally. Render
+  builds this routinely — retry there or raise Docker Desktop memory
+  (Settings → Resources) and run `docker build -t deepresearch-ai .`.
+
+### Files Changed
+- [NEW] `src/agents/pipeline.py`, `Dockerfile`, `render.yaml`,
+        `.dockerignore`, `Makefile`
+- [MOD] `src/agents/__init__.py` (AgentPipeline exports)
+- [MOD] `src/api/routes/query.py` (agent pipeline + trace response)
+- [MOD] `src/api/routes/health.py` (readiness probe)
+- [MOD] `src/api/middleware.py` (structured error handlers)
+- [MOD] `src/ui/pages/research_chat.py` (agent trace UI)
+- [MOD] `tests/integration/test_api.py` (agent-path coverage)
+- [MOD] `.env.example` (Gemini + retrieval vars), `README.md` (deploy docs)
+
+### Follow-up: live Gemini verification (real key)
+
+Ran the real pipelines end-to-end against Gemini. Four findings that only the
+network run could produce:
+
+1. **Default embedding model was dead.** `models/text-embedding-004` -> 404
+   `NOT_FOUND` on v1beta. Confirmed key validity via `ListModels` (63 models),
+   switched default to **`models/gemini-embedding-001`**.
+2. **Chat default equally stale.** `gemini-2.0-flash` absent; live line is
+   `gemini-2.5-flash`.
+3. **Dimension differs by provider: 3072 (Gemini) vs 1536 (OpenAI
+   text-embedding-3-small).** Provider swap is config for code but *not* for
+   stored vectors. Production store is empty (0 vectors) so no migration today,
+   but this is the one non-config cost of the swap - it bites any populated
+   store. `gemini-embedding-001` supports `output_dimensionality` if 1536 is
+   needed for interoperability.
+4. **End-to-end ranking was correct**, not merely successful:
+   - `what is rrf fusion k=60` -> RRF paragraph ranked #1
+   - `why use a cross-encoder reranker` -> cross-encoder paragraph ranked #1
+   - reranked=True, 620-744 ms, temp ChromaDB client (production untouched).
+
+**Why this matters for the interview:** unit tests stub the client, so a stale
+model constant is invisible to them. Only the live run exposes it. This is the
+concrete argument for "I don't just wire the abstraction - I exercise it."
+
+**Gate after verification: 178/178 tests, ruff check + format clean, mypy
+strict clean (65 files).**

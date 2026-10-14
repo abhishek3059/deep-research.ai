@@ -58,4 +58,4 @@ GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/opena
 
 # Default Gemini embedding model. Google's OpenAI-compatible surface does NOT
 # cover embeddings, so these go through the native SDK instead.
-DEFAULT_GEMINI_EMBEDDING_MODEL = "models/text-embedding-004"
+DEFAULT_GEMINI_EMBEDDING_MODEL = "models/gemini-embedding-001"  # verified live, ADR-012

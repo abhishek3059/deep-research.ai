@@ -1,45 +1,37 @@
-"""Query endpoint for retrieval and generation."""
+"""Query endpoint — full agent pipeline (retrieve -> critique -> deliver)."""
 
 from __future__ import annotations
 
+import structlog
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from src.agents.generation import GenerationPipeline
-from src.config.settings import settings
-from src.retrieval.pipeline import RetrievalPipeline
-from src.vectorstore.manager import get_store
+from src.agents.exceptions import AgentError, AgentGraphError
+from src.agents.pipeline import AgentPipeline, build_agent_pipeline
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
 
-# Module-level singletons: pipelines are expensive (model clients, BM25 index)
-# and stateless across requests, so they are built once and reused. Tests reset
-# them by assigning ``None`` (see ``tests/integration/test_api.py``).
-_retrieval: RetrievalPipeline | None = None
-_generator: GenerationPipeline | None = None
+# Module-level singleton: the graph compiles once (LangGraph + model clients)
+# and is stateless across requests, so it is built once and reused. Tests reset
+# it by assigning ``None`` (see ``tests/integration/test_api.py``).
+_agent: AgentPipeline | None = None
 
 
-def _get_retrieval() -> RetrievalPipeline:
-    """Return the shared retrieval pipeline, building it on first call."""
-    global _retrieval  # noqa: PLW0603 - intentional process-wide singleton
-    if _retrieval is None:
-        _retrieval = RetrievalPipeline(
-            vector_store=get_store(),
-            enable_sparse=False,
-            enable_rerank=False,
-            enable_multi_query=False,
-            min_coverage=settings.min_coverage,
-        )
-    return _retrieval
+def _get_agent() -> AgentPipeline:
+    """Return the shared agent pipeline, building it on first call."""
+    global _agent  # noqa: PLW0603 - intentional process-wide singleton
+    if _agent is None:
+        _agent = build_agent_pipeline()
+    return _agent
 
 
-def _get_generator() -> GenerationPipeline:
-    """Return the shared generation pipeline, building it on first call."""
-    global _generator  # noqa: PLW0603 - intentional process-wide singleton
-    if _generator is None:
-        _generator = GenerationPipeline()
-    return _generator
+def reset_agent() -> None:
+    """Reset the singleton (useful in tests)."""
+    global _agent  # noqa: PLW0603 - intentional process-wide singleton
+    _agent = None
 
 
 class QueryRequest(BaseModel):
@@ -49,27 +41,48 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     sources: list[str]
+    iterations: int = 0
+    revised: bool = False
+    critique_passed: bool | None = None
+    critique_summary: str = ""
 
 
 @router.post("/api/v1/query", response_model=QueryResponse)
 async def query_knowledge_base(request: QueryRequest) -> QueryResponse:
-    """Run retrieval and return an answer with cited sources.
+    """Run the full agent loop and return a cited, critiqued answer.
 
-    Uses the retrieval pipeline with multi-query expansion and hybrid
-    search.  The answer is assembled from retrieved chunks.
+    Path: InputGuard (intake) -> retrieve -> generate -> critique -> revise
+    (max 3) -> OutputGuard (deliver). 404 when the corpus does not cover the
+    query (coverage floor); 422 when the input guard rejects the query.
     """
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query must not be empty")
 
-    result = await _get_retrieval().retrieve(request.query, top_k=settings.top_k)
+    try:
+        final = await _get_agent().run(request.query.strip())
+    except AgentGraphError as exc:
+        # Input-guard rejections and unroutable states land here.
+        logger.warning("Agent graph rejected query", error=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AgentError as exc:
+        logger.error("Agent pipeline failed", error=str(exc))
+        raise HTTPException(status_code=500, detail="Agent pipeline failed") from exc
 
-    if not result.results:
+    answer = final.current_answer
+    if final.no_coverage or not answer.strip():
         raise HTTPException(
             status_code=404,
             detail="No relevant documents found for the query",
         )
 
-    gen_result = await _get_generator().generate_answer(request.query, result)
-
-    sources = [s["source"] for s in gen_result["sources"]]
-    return QueryResponse(answer=gen_result["answer"], sources=sources)
+    sources = [s.get("source", "") for s in final.sources if s.get("source")]
+    critique = final.critique_result
+    revised = bool(final.revised_answer) and final.revised_answer != final.initial_answer
+    return QueryResponse(
+        answer=answer,
+        sources=sources,
+        iterations=final.iteration_count,
+        revised=revised,
+        critique_passed=critique.passed if critique is not None else None,
+        critique_summary=critique.summary if critique is not None else "",
+    )

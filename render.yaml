@@ -17,9 +17,9 @@ services:
       - key: EMBEDDING_PROVIDER
         value: gemini
       - key: GEMINI_EMBEDDING_MODEL
-        value: models/text-embedding-004
+        value: models/gemini-embedding-001
       - key: LLM_MODEL
-        value: gemini-2.0-flash
+        value: gemini-3.8-flash
       - key: VECTOR_STORE_TYPE
         value: chroma
       - key: CHROMA_PERSIST_DIR
